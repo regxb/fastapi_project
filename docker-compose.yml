@@ -9,7 +9,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - .postgres:/var/lib/postgres/data
+      - postgres_data:/var/lib/postgresql/data
 
   app:
     container_name: fastapi_app
@@ -19,6 +19,13 @@ services:
     depends_on:
       - db
     command: bash -c 'alembic upgrade head; uvicorn main:app --host 0.0.0.0 --port 8000'
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - app
 
 volumes:
   postgres_data:
