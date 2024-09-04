@@ -1,19 +1,28 @@
 import random
-from typing import Optional
 
 from fastapi import FastAPI
-from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
+from fastapi.middleware.cors import CORSMiddleware
 
 from models.models import Word, TranslationWord, session_maker
 
 app = FastAPI()
 
+origins = [
+    "http://localhost.tiangolo.com",
+    "https://localhost.tiangolo.com",
+    "http://localhost",
+    "http://localhost:8080",
+]
 
-class User(BaseModel):
-    id: int
-    name: Optional[str] = None
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/get_word")
