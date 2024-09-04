@@ -26,10 +26,12 @@ async def get_word():
     random_words = [random_word for random_word in result.scalars().all()]
     word_for_translate = random_words[0]
     random.shuffle(random_words)
+
     return {
-        "word_for_translate": [{word_for_translate.name: word_for_translate.id}],
+        "word_for_translate": [{'id': word_for_translate.id,
+                                'name': word_for_translate.name}],
         "other_words": [
-            {word.translation.name: word.id} for word in random_words
+            {'id': word.id, 'name': word.name} for word in random_words
         ]
     }
 
