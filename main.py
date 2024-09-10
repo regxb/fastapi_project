@@ -1,4 +1,5 @@
 import random
+import uuid
 
 from fastapi import FastAPI
 from sqlalchemy import func, select
@@ -17,27 +18,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+part_of_speech = [
+    'noun', 'verb', 'adjective', 'adverb', 'determiner',
+    'pronoun', 'preposition', 'numeral', 'conjunction', 'other'
+]
+
 
 @app.get("/get_word")
 async def get_word():
+    random_part_of_speech = random.choice(part_of_speech)
     async with session_maker() as session:
-        query = select(Word).options(joinedload(Word.translation)).order_by(func.random()).limit(3)
+        query = select(Word).where(Word.part_of_speech == random_part_of_speech).options(joinedload(Word.translation)).order_by(func.random()).limit(3)
         result = await session.execute(query)
     random_words = [random_word for random_word in result.scalars().all()]
     word_for_translate = random_words[0]
     random.shuffle(random_words)
 
     return {
-        "word_for_translate": [{'id': word_for_translate.id,
-                                'name': word_for_translate.name}],
+        "word_for_translate": {'id': word_for_translate.id,
+                               'name': word_for_translate.name},
         "other_words": [
-            {'id': word.id, 'name': word.name} for word in random_words
+            {'id': word.translation.id, 'name': word.translation.name} for word in random_words
         ]
     }
 
 
 @app.get("/check_answer")
-async def check_answer(word_for_translate_id: int, user_choice_word_id: int):
+async def check_answer(word_for_translate_id: uuid.UUID, user_choice_word_id: uuid.UUID):
     async with session_maker() as session:
         query = select(Word).where(Word.id == word_for_translate_id)
         word_for_translate = await session.scalar(query)
@@ -49,11 +56,16 @@ async def check_answer(word_for_translate_id: int, user_choice_word_id: int):
 
 
 @app.post("/words")
-async def add_words(name: str, translation_name: str):
+async def add_words(name: str, translation_name: str, part_of_speech: str, rating: str):
     async with session_maker() as session:
         translation_word = TranslationWord(name=translation_name)
         session.add(translation_word)
         await session.commit()
-        word_with_translation = Word(name=name, translation_id=translation_word.id)
+        word_with_translation = Word(
+            name=name,
+            translation_id=translation_word.id,
+            part_of_speech=part_of_speech,
+            rating=rating
+        )
         session.add(word_with_translation)
         await session.commit()
