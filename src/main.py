@@ -62,18 +62,18 @@ async def get_word(session: AsyncSession = Depends(get_async_session)):
             {'id': word.id, 'name': word.name} for word in random_words
         ]
     }
-#
-#
-# @app.get("/check_answer")
-# async def check_answer(word_for_translate_id: uuid.UUID, user_choice_word_id: uuid.UUID):
-#     async with async_sessionmaker() as session:
-#         query = select(Word).where(Word.id == word_for_translate_id)
-#         word_for_translate = await session.scalar(query)
-#     if word_for_translate is None:
-#         return f"Слово с id {word_for_translate_id} не найдено"
-#     if word_for_translate.translation_id == user_choice_word_id:
-#         return True
-#     return False
 
-# @app.post("/exam")
-# async def exam(user_id: int):
+
+@app.get("/check_answer")
+async def check_answer(
+        word_for_translate_id: uuid.UUID,
+        user_choice_word_id: uuid.UUID,
+        session: AsyncSession = Depends(get_async_session),
+):
+    query = select(Word).where(Word.id == word_for_translate_id)
+    word_for_translate = await session.scalar(query)
+    if word_for_translate is None:
+        return f"Слово с id {word_for_translate_id} не найдено"
+    if word_for_translate.translation_id == user_choice_word_id:
+        return True
+    return False
