@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from fastapi.middleware.cors import CORSMiddleware
 
-from .models import Word
+from .models import Word, User
+from .utils import get_random_words
 from .database import get_async_session
 
 app = FastAPI()
@@ -20,21 +21,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-part_of_speech = [
-    'noun', 'verb', 'adjective', 'adverb', 'determiner',
-    'pronoun', 'preposition', 'numeral', 'conjunction', 'other'
-]
+
+@app.post("/user")
+async def create_user(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
+    user = User(telegram_id=telegram_id)
+    session.add(user)
+    await session.commit()
+
+
+@app.get("/user")
+async def get_user_list(session: AsyncSession = Depends(get_async_session)):
+    result = await session.execute(select(User))
+    users_list = result.scalars().all()
+
+    return [{"user_id": user.id, "user_rating": user.rating, "created_at": user.created_at} for user in users_list]
 
 
 @app.get("/get-word/eng")
 async def get_word(session: AsyncSession = Depends(get_async_session)):
-    random_part_of_speech = random.choice(part_of_speech)
-    query = select(Word).where(Word.part_of_speech == random_part_of_speech, Word.rating == "A1"
-                               ).options(joinedload(Word.translation)).order_by(func.random()).limit(3)
-    result = await session.execute(query)
-    random_words = [random_word for random_word in result.scalars().all()]
-    word_for_translate = random_words[0]
-    random.shuffle(random_words)
+    word_for_translate, random_words = await get_random_words(session)
 
     return {
         "word_for_translate": {'id': word_for_translate.id,
@@ -47,13 +52,7 @@ async def get_word(session: AsyncSession = Depends(get_async_session)):
 
 @app.get("/get-word/rus")
 async def get_word(session: AsyncSession = Depends(get_async_session)):
-    random_part_of_speech = random.choice(part_of_speech)
-    query = select(Word).where(Word.part_of_speech == random_part_of_speech, Word.rating == "A1"
-                               ).options(joinedload(Word.translation)).order_by(func.random()).limit(3)
-    result = await session.execute(query)
-    random_words = [random_word for random_word in result.scalars().all()]
-    word_for_translate = random_words[0]
-    random.shuffle(random_words)
+    word_for_translate, random_words = await get_random_words(session)
 
     return {
         "word_for_translate": {'id': word_for_translate.id,
