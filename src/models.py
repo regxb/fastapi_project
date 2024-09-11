@@ -18,6 +18,8 @@ class User(Base):
     rating: Mapped[str] = mapped_column(default="A1")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
+    exam: Mapped["Exam"] = relationship(back_populates="user")
+
 
 class Exam(Base):
     __tablename__ = "exam"
@@ -25,9 +27,12 @@ class Exam(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
     status: Mapped[str] = mapped_column(default="going")
-    created_at: Mapped[datetime] = mapped_column(default=func.now)
-    word: Mapped[str] = mapped_column(ForeignKey('words.id'))
-    answer_status: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    word_id: Mapped[str] = mapped_column(ForeignKey('words.id'))
+    answer_status: Mapped[str] = mapped_column(default="awaiting response")
+
+    user: Mapped["User"] = relationship(back_populates="exam")
+    word: Mapped["Word"] = relationship(back_populates="exam")
 
 
 class Word(Base):
@@ -44,6 +49,7 @@ class Word(Base):
     translation_id: Mapped[int] = mapped_column(ForeignKey('translation_words.id'))
 
     translation: Mapped["TranslationWord"] = relationship(back_populates="words")
+    exam: Mapped["Exam"] = relationship(back_populates="word")
 
 
 class TranslationWord(Base):
