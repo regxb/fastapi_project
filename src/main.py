@@ -2,12 +2,12 @@ import random
 import uuid
 
 from fastapi import FastAPI, Depends
-from sqlalchemy import func, select
+from sqlalchemy import func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from fastapi.middleware.cors import CORSMiddleware
 
-from .models import Word, User
+from .models import Word, User, Exam
 from .utils import get_random_words
 from .database import get_async_session
 
@@ -58,7 +58,7 @@ async def get_word(session: AsyncSession = Depends(get_async_session)):
         "word_for_translate": {'id': word_for_translate.id,
                                'name': word_for_translate.translation.name},
         "other_words": [
-            {'id': word.id, 'name': word.name} for word in random_words
+            {'id': word.translation.id, 'name': word.name} for word in random_words
         ]
     }
 
@@ -76,3 +76,61 @@ async def check_answer(
     if word_for_translate.translation_id == user_choice_word_id:
         return True
     return False
+
+
+@app.get("/exam")
+async def exam(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
+    query = (
+        select(Exam)
+        .join(Exam.user)
+        .join(Exam.word)
+        .join(Word.translation)
+        .options(
+            selectinload(Exam.user),
+            selectinload(Exam.word),
+            selectinload(Exam.word, Word.translation)
+        )
+        .where(and_(User.telegram_id == telegram_id, Exam.status == "going"))
+        .order_by(Exam.id.desc())
+    )
+    result = await session.execute(query)
+    exam_data = result.scalars().all()
+    if exam_data:
+        word_for_translate = exam_data[0]
+        translated_word = {"id": word_for_translate.word.translation.id, "name": word_for_translate.word.name}
+        word_ids = [word.word_id for word in exam_data]
+        subquery = (
+            select(Word)
+            .join(Word.translation)
+            .options(joinedload(Word.translation))
+            .where(and_(Word.id.not_in(word_ids)),
+                   Word.part_of_speech == word_for_translate.word.part_of_speech)
+            .order_by(func.random()).limit(2)
+        )
+        result = await session.execute(subquery)
+        random_words = [{"id": word.id, "name": word.name} for word in result.scalars().all()]
+        random_words.append(translated_word)
+        random.shuffle(random_words)
+        return {
+            "word_for_translate": {'id': word_for_translate.word.id, 'name': word_for_translate.word.translation.name},
+            "other_words": random_words
+        }
+    else:
+        word_for_translate, random_words = await get_random_words(session)
+        user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
+        new_exam = Exam(
+            user_id=user.id,
+            status="going",
+            word_id=word_for_translate.id,
+            answer_status="awaiting response"
+        )
+        session.add(new_exam)
+        await session.commit()
+
+        return {
+            "word_for_translate": {'id': word_for_translate.id,
+                                   'name': word_for_translate.translation.name},
+            "other_words": [
+                {'id': word.id, 'name': word.name} for word in random_words
+            ]
+        }
