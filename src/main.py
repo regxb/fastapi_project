@@ -134,3 +134,4 @@ async def exam(telegram_id: int, session: AsyncSession = Depends(get_async_sessi
                 {'id': word.id, 'name': word.name} for word in random_words
             ]
         }
+
