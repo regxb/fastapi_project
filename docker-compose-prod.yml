@@ -1,0 +1,55 @@
+services:
+  db:
+    container_name: db_app
+    image: postgres
+    env_file:
+      - .env
+    environment:
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    expose:
+      - '5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  app:
+    container_name: fastapi_app
+    build: ./
+    expose:
+      - 80
+    depends_on:
+      - db
+    command: bash -c 'alembic upgrade head; uvicorn src.main:app --host 0.0.0.0 --port 80'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fastapi.rule=Host(`api.learn.mirash.su`)"
+      - "traefik.http.routers.fastapi.tls=true"
+      - "traefik.http.routers.fastapi.tls.certresolver=letsencrypt"
+
+  traefik:
+      build:
+        context: .
+        dockerfile: Dockerfile.traefik
+      ports:
+      - "80:80"
+      - "443:443"
+      volumes:
+        - "/var/run/docker.sock:/var/run/docker.sock:ro"
+        - "./traefik-public-certificates:/certificates"
+      labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`dashboard.learn.mirash.su`)"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.service=api@internal"
+#      - "traefik.http.routers.dashboard.middlewares=auth"
+#      - "traefik.http.middlewares.auth.basicauth.users=testuser:321testuser"
+
+
+volumes:
+  postgres_data:
+  traefik-public-certificates:
