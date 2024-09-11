@@ -13,6 +13,7 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True)
+    rating: Mapped[str] = mapped_column(default="A1")
     created_at: Mapped[datetime] = mapped_column(default=func.now)
 
 
