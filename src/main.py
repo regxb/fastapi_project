@@ -3,6 +3,8 @@ import uuid
 
 from fastapi import FastAPI, Depends
 from sqlalchemy import func, select, and_
+from fastapi.openapi.docs import get_swagger_ui_html
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +13,7 @@ from .models import Word, User, Exam
 from .utils import get_random_words
 from .database import get_async_session
 
-app = FastAPI()
+app = FastAPI(docs_url=None,title='Learn API')
 
 app.add_middleware(
     CORSMiddleware,
@@ -135,3 +137,13 @@ async def exam(telegram_id: int, session: AsyncSession = Depends(get_async_sessi
             ]
         }
 
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_js_url="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js",
+        swagger_css_url="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css",
+    )
