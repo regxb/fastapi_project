@@ -93,44 +93,53 @@ async def exam(telegram_id: int, session: AsyncSession = Depends(get_async_sessi
         exam_id = exam_data.id
 
         query = ((select(Word)
-                 .join(ExamQuestion))
+                  .join(ExamQuestion))
                  .options(joinedload(Word.translation))
                  .options(joinedload(Word.exam_question))
                  .where(and_(ExamQuestion.exam_id == exam_id, ExamQuestion.status == "awaiting response")))
 
         result = await session.execute(query)
-        obj_for_translate = result.scalar()
-        if obj_for_translate:
-            word_for_translate_data = {"id": obj_for_translate.id, "name": obj_for_translate.translation.name}
+        word_for_translate = result.scalar()
+        if word_for_translate:
+            word_for_translate_data = {
+                "id": word_for_translate.translation.id,
+                "name": word_for_translate.translation.name
+            }
         else:
             query = select(ExamQuestion).where(ExamQuestion.exam_id == exam_id)
             result = await session.execute(query)
             word_objs = result.scalars().all()
-            word_ids = [word.word_id for word in word_objs]
-            query = select(Word).options(joinedload(Word.translation)) .where(Word.id not in word_ids).order_by(func.random()).limit(1)
+            word_ids = [word_obj.word_id for word_obj in word_objs]
+            query = (select(Word)
+                     .options(joinedload(Word.translation))
+                     .where(Word.id not in word_ids).order_by(func.random()).limit(1))
             result = await session.execute(query)
-            obj_for_translate = result.scalars().first()
-            word_for_translate_data = {"id": obj_for_translate.id, "name": obj_for_translate.translation.name}
+            word_for_translate = result.scalars().first()
+            word_for_translate_data = {
+                "id": word_for_translate.translation.id,
+                "name": word_for_translate.translation.name
+            }
 
             new_exam_question = ExamQuestion(
                 exam_id=exam_id,
-                word_id=obj_for_translate.id,
+                word_id=word_for_translate.id,
                 status="awaiting response"
             )
             session.add(new_exam_question)
             await session.commit()
 
         query = (((select(Word)
-                 .where(and_(Word.part_of_speech == obj_for_translate.part_of_speech,
-                             Word.id != obj_for_translate.id)))
-                 .order_by(func.random()))
+                   .where(and_(Word.part_of_speech == word_for_translate.part_of_speech,
+                               Word.id != word_for_translate.id)))
+                  .order_by(func.random()))
                  .limit(2))
         result = await session.execute(query)
         random_words = result.scalars().all()
         other_words = [{"id": random_word.id, "name": random_word.name} for random_word in random_words]
-        other_words.append({"id": obj_for_translate.id, "name": obj_for_translate.name})
+        other_words.append({"id": word_for_translate.id, "name": word_for_translate.name})
         random.shuffle(other_words)
-        return {"word_for_translate": word_for_translate_data, "other_words": other_words}
+        exam_way = await session.scalar(select(func.count(ExamQuestion.id)).where(ExamQuestion.exam_id == exam_id))
+        return {"word_for_translate": word_for_translate_data, "other_words": other_words, "exam_way": exam_way}
 
     else:
         word_for_translate, random_words = await get_random_words(session)
@@ -155,7 +164,8 @@ async def exam(telegram_id: int, session: AsyncSession = Depends(get_async_sessi
                                    'name': word_for_translate.translation.name},
             "other_words": [
                 {'id': word.id, 'name': word.name} for word in random_words
-            ]
+            ],
+            "exam_way": 1
         }
 
 
@@ -182,6 +192,16 @@ async def check_answer(
         objs.status = "right"
         await session.commit()
         return True
+    else:
+        exam_data = await session.scalar(select(Exam).where(and_(Exam.status == "going", Exam.user_id == user_data.id)))
+        exam_data.status = "failed"
+
+        exam_question_data = await session.scalar(select(ExamQuestion)
+                                                  .where(and_(ExamQuestion.status == "awaiting response",
+                                                              ExamQuestion.exam_id == exam_data.id)))
+
+        exam_question_data.status = "failed"
+        await session.commit()
     return False
 
 
