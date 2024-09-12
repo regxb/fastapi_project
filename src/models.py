@@ -26,13 +26,23 @@ class Exam(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
-    status: Mapped[str] = mapped_column(default="going")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    word_id: Mapped[str] = mapped_column(ForeignKey('words.id'))
-    answer_status: Mapped[str] = mapped_column(default="awaiting response")
+    status: Mapped[str] = mapped_column(default="going")
 
     user: Mapped["User"] = relationship(back_populates="exam")
-    word: Mapped["Word"] = relationship(back_populates="exam")
+    exam_question: Mapped["ExamQuestion"] = relationship(back_populates="exam")
+
+
+class ExamQuestion(Base):
+    __tablename__ = "exam_question"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    exam_id: Mapped[int] = mapped_column(ForeignKey('exam.id'))
+    word_id: Mapped[str] = mapped_column(ForeignKey('words.id'))
+    status: Mapped[str] = mapped_column(default="awaiting response")
+
+    exam: Mapped["Exam"] = relationship(back_populates="exam_question")
+    word: Mapped["Word"] = relationship(back_populates="exam_question")
 
 
 class Word(Base):
@@ -49,7 +59,7 @@ class Word(Base):
     translation_id: Mapped[int] = mapped_column(ForeignKey('translation_words.id'))
 
     translation: Mapped["TranslationWord"] = relationship(back_populates="words")
-    exam: Mapped["Exam"] = relationship(back_populates="word")
+    exam_question: Mapped["ExamQuestion"] = relationship(back_populates="word")
 
 
 class TranslationWord(Base):
