@@ -43,30 +43,50 @@ async def get_user_list(session: AsyncSession = Depends(get_async_session)):
     return [{"user_id": user.id, "user_rating": user.rating, "created_at": user.created_at} for user in users_list]
 
 
-@app.get("/get-word/eng")
-async def get_word(session: AsyncSession = Depends(get_async_session)):
+@app.get("/get-word")
+async def get_word(language: str, session: AsyncSession = Depends(get_async_session)):
     word_for_translate, random_words = await get_random_words(session)
+    if language == "eng":
+        return {
+            "word_for_translate": {'id': word_for_translate.id,
+                                   'name': word_for_translate.name},
+            "other_words": [
+                {'id': word.translation.id, 'name': word.translation.name} for word in random_words
+            ]
+        }
+    elif language == "ru":
+        return {
+            "word_for_translate": {'id': word_for_translate.id,
+                                   'name': word_for_translate.translation.name},
+            "other_words": [
+                {'id': word.translation.id, 'name': word.name} for word in random_words
+            ]
+        }
 
-    return {
-        "word_for_translate": {'id': word_for_translate.id,
-                               'name': word_for_translate.name},
-        "other_words": [
-            {'id': word.translation.id, 'name': word.translation.name} for word in random_words
-        ]
-    }
-
-
-@app.get("/get-word/rus")
-async def get_word(session: AsyncSession = Depends(get_async_session)):
-    word_for_translate, random_words = await get_random_words(session)
-
-    return {
-        "word_for_translate": {'id': word_for_translate.id,
-                               'name': word_for_translate.translation.name},
-        "other_words": [
-            {'id': word.translation.id, 'name': word.name} for word in random_words
-        ]
-    }
+# @app.get("/get-word/eng")
+# async def get_word(session: AsyncSession = Depends(get_async_session)):
+#     word_for_translate, random_words = await get_random_words(session)
+#
+#     return {
+#         "word_for_translate": {'id': word_for_translate.id,
+#                                'name': word_for_translate.name},
+#         "other_words": [
+#             {'id': word.translation.id, 'name': word.translation.name} for word in random_words
+#         ]
+#     }
+#
+#
+# @app.get("/get-word/rus")
+# async def get_word(session: AsyncSession = Depends(get_async_session)):
+#     word_for_translate, random_words = await get_random_words(session)
+#
+#     return {
+#         "word_for_translate": {'id': word_for_translate.id,
+#                                'name': word_for_translate.translation.name},
+#         "other_words": [
+#             {'id': word.translation.id, 'name': word.name} for word in random_words
+#         ]
+#     }
 
 
 @app.get("/check-answer")
