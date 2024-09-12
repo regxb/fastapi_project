@@ -160,7 +160,7 @@ async def exam(telegram_id: int, session: AsyncSession = Depends(get_async_sessi
         await session.commit()
 
         return {
-            "word_for_translate": {'id': word_for_translate.id,
+            "word_for_translate": {'id': word_for_translate.translation_id,
                                    'name': word_for_translate.translation.name},
             "other_words": [
                 {'id': word.id, 'name': word.name} for word in random_words
@@ -176,12 +176,12 @@ async def check_answer(
         user_choice_word_id: uuid.UUID,
         session: AsyncSession = Depends(get_async_session),
 ):
-    query = select(Word).where(Word.id == word_for_translate_id)
+    query = select(Word).where(Word.translation_id == word_for_translate_id)
     word_for_translate = await session.scalar(query)
     user_data = await session.scalar(select(User).where(User.telegram_id == telegram_id))
     if word_for_translate is None:
         return f"Слово с id {word_for_translate_id} не найдено"
-    if word_for_translate.translation_id == user_choice_word_id:
+    if word_for_translate.id == user_choice_word_id:
         query = (select(ExamQuestion)
                  .join(Exam)
                  .where(and_(Exam.user_id == user_data.id,
