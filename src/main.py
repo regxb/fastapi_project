@@ -15,7 +15,8 @@ from .models import Word, User, Exam, ExamQuestion
 from .schemas import UserCreate, UserInfo, WordResponse, WordInfo
 from .utils import get_random_words
 from .database import get_async_session
-from src.exam.router import router as exam_router
+from src.exams.router import router as exams_router
+from src.users.router import router as users_router
 
 app = FastAPI(docs_url=None, title='Learn API')
 
@@ -26,39 +27,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.post("/user")
-async def create_user(user_data: UserCreate, session: AsyncSession = Depends(get_async_session)):
-    existing_user = await session.scalar(select(User).where(User.telegram_id == user_data.telegram_id))
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Пользователь уже зарегистрирован")
-    new_user = User(telegram_id=user_data.telegram_id)
-    session.add(new_user)
-
-    try:
-        await session.commit()
-        await session.refresh(new_user)
-    except IntegrityError:
-        await session.rollback()
-        raise HTTPException(status_code=500, detail="Ошибка при сохранении пользователя")
-
-    return {"response": f"Пользователь с id {new_user.id} успешно создан"}
-
-
-@app.get("/user", response_model=List[UserInfo])
-async def get_users_list(session: AsyncSession = Depends(get_async_session)):
-    result = await session.execute(select(User))
-    users_list = result.scalars().all()
-    return users_list
-
-
-@app.get("/user/{user_id}", response_model=UserInfo)
-async def get_user_info(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
-    user_data = await session.scalar(select(User).where(User.telegram_id == telegram_id))
-    if user_data is None:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-    return user_data
 
 
 @app.get("/get-word", response_model=WordResponse)
@@ -96,7 +64,8 @@ async def check_answer(
         return True
     return False
 
-app.include_router(exam_router)
+app.include_router(exams_router)
+app.include_router(users_router)
 
 
 @app.get("/docs", include_in_schema=False)
