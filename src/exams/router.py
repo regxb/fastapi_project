@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from src.exams.schemas import ExamData
 from src.models import Word, User, Exam, ExamQuestion
 from src.utils import get_random_words
 from src.database import get_async_session
@@ -19,8 +20,8 @@ router = APIRouter(
 
 
 @router.post("/start")
-async def start_exam(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
-    query = select(Exam).join(Exam.user).where(and_(User.telegram_id == telegram_id, Exam.status == "going"))
+async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(get_async_session)):
+    query = select(Exam).join(Exam.user).where(and_(User.telegram_id == exam_user_data.telegram_id, Exam.status == "going"))
     result = await session.execute(query)
     exam_data = result.scalar()
     if exam_data:
@@ -77,7 +78,7 @@ async def start_exam(telegram_id: int, session: AsyncSession = Depends(get_async
 
     else:
         word_for_translate, random_words = await get_random_words(session)
-        user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
+        user = await session.scalar(select(User).where(User.telegram_id == exam_user_data.telegram_id))
         new_exam = Exam(
             user_id=user.id,
             status="going",
