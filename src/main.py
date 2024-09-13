@@ -12,7 +12,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import Word, User, Exam, ExamQuestion
-from .schemas import UserCreate, Answer, UsersList
+from .schemas import UserCreate, Answer, UserInfo
 from .utils import get_random_words
 from .database import get_async_session
 
@@ -45,12 +45,19 @@ async def create_user(user_data: UserCreate, session: AsyncSession = Depends(get
     return {"response": f"Пользователь с id {new_user.id} успешно создан"}
 
 
-@app.get("/user", response_model=List[UsersList])
+@app.get("/user", response_model=List[UserInfo])
 async def get_users_list(session: AsyncSession = Depends(get_async_session)):
     result = await session.execute(select(User))
     users_list = result.scalars().all()
-
     return users_list
+
+
+@app.get("/user/{user_id}", response_model=UserInfo)
+async def get_user_info(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
+    user_data = await session.scalar(select(User).where(User.telegram_id == telegram_id))
+    if user_data is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    return user_data
 
 
 @app.get("/get-word")

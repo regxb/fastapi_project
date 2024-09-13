@@ -9,7 +9,7 @@ class UserCreate(BaseModel):
     telegram_id: int
 
 
-class UsersList(BaseModel):
+class UserInfo(BaseModel):
     id: int
     telegram_id: int
     rating: str
