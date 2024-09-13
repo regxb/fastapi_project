@@ -14,3 +14,13 @@ class UserInfo(BaseModel):
     telegram_id: int
     rating: str
     created_at: datetime
+
+
+class WordInfo(BaseModel):
+    id: UUID4
+    name: str
+
+
+class WordResponse(BaseModel):
+    word_for_translate: WordInfo
+    other_words: List[WordInfo]

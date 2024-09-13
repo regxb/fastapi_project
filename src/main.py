@@ -3,16 +3,16 @@ import uuid
 from typing import Optional, List
 
 from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy import func, select, and_
+from sqlalchemy import and_
 from fastapi.openapi.docs import get_swagger_ui_html
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import Word, User, Exam, ExamQuestion
-from .schemas import UserCreate, UserInfo
+from .schemas import UserCreate, UserInfo, WordResponse, WordInfo
 from .utils import get_random_words
 from .database import get_async_session
 
@@ -63,24 +63,22 @@ async def get_user_info(telegram_id: int, session: AsyncSession = Depends(get_as
 @app.get("/get-word")
 async def get_word(language: str, session: AsyncSession = Depends(get_async_session)):
     word_for_translate, random_words = await get_random_words(session)
+
     if language == "eng":
-        return {
-            "word_for_translate": {'id': word_for_translate.id,
-                                   'name': word_for_translate.name},
-            "other_words": [
-                {'id': word.translation.id, 'name': word.translation.name} for word in random_words
-            ]
-        }
+        response_data = WordResponse(
+            word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.name),
+            other_words=[WordInfo(id=word.translation.id, name=word.translation.name) for word in random_words]
+        )
+
     elif language == "ru":
-        return {
-            "word_for_translate": {'id': word_for_translate.id,
-                                   'name': word_for_translate.translation.name},
-            "other_words": [
-                {'id': word.translation.id, 'name': word.name} for word in random_words
-            ]
-        }
+        response_data = WordResponse(
+            word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.translation.name),
+            other_words=[WordInfo(id=word.translation.id, name=word.name) for word in random_words]
+        )
     else:
         raise HTTPException(status_code=404, detail="Язык не найден")
+
+    return response_data
 
 
 @app.get("/check-answer", response_model=Optional[bool])
@@ -98,8 +96,8 @@ async def check_answer(
     return False
 
 
-@app.get("/exam")
-async def exam(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
+@app.post("/exam")
+async def start_exam(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
     query = select(Exam).join(Exam.user).where(and_(User.telegram_id == telegram_id, Exam.status == "going"))
     result = await session.execute(query)
     exam_data = result.scalar()
@@ -184,7 +182,7 @@ async def exam(telegram_id: int, session: AsyncSession = Depends(get_async_sessi
 
 
 @app.get("/check-exam-answer", response_model=Optional[bool])
-async def check_answer(
+async def check_exam_answer(
         telegram_id: int,
         word_for_translate_id: uuid.UUID,
         user_choice_word_id: uuid.UUID,
