@@ -12,7 +12,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import Word, User, Exam, ExamQuestion
-from .schemas import UserCreate, Answer, UserInfo
+from .schemas import UserCreate, UserInfo
 from .utils import get_random_words
 from .database import get_async_session
 
@@ -79,43 +79,21 @@ async def get_word(language: str, session: AsyncSession = Depends(get_async_sess
                 {'id': word.translation.id, 'name': word.name} for word in random_words
             ]
         }
-
-# @app.get("/get-word/eng")
-# async def get_word(session: AsyncSession = Depends(get_async_session)):
-#     word_for_translate, random_words = await get_random_words(session)
-#
-#     return {
-#         "word_for_translate": {'id': word_for_translate.id,
-#                                'name': word_for_translate.name},
-#         "other_words": [
-#             {'id': word.translation.id, 'name': word.translation.name} for word in random_words
-#         ]
-#     }
-#
-#
-# @app.get("/get-word/rus")
-# async def get_word(session: AsyncSession = Depends(get_async_session)):
-#     word_for_translate, random_words = await get_random_words(session)
-#
-#     return {
-#         "word_for_translate": {'id': word_for_translate.id,
-#                                'name': word_for_translate.translation.name},
-#         "other_words": [
-#             {'id': word.translation.id, 'name': word.name} for word in random_words
-#         ]
-#     }
+    else:
+        raise HTTPException(status_code=404, detail="Язык не найден")
 
 
 @app.get("/check-answer", response_model=Optional[bool])
 async def check_answer(
-        answer: Answer,
+        word_for_translate_id: uuid.UUID,
+        user_choice_word_id: uuid.UUID,
         session: AsyncSession = Depends(get_async_session),
 ):
-    query = select(Word).where(Word.id == answer.word_for_translate_id)
+    query = select(Word).where(Word.id == word_for_translate_id)
     word_for_translate = await session.scalar(query)
     if word_for_translate is None:
-        return f"Слово с id {answer.word_for_translate_id} не найдено"
-    if word_for_translate.translation_id == answer.user_choice_word_id:
+        raise HTTPException(status_code=404, detail=f"Слово с id {word_for_translate_id} не найдено")
+    if word_for_translate.translation_id == user_choice_word_id:
         return True
     return False
 
@@ -205,7 +183,7 @@ async def exam(telegram_id: int, session: AsyncSession = Depends(get_async_sessi
         }
 
 
-@app.get("/check-exam-answer")
+@app.get("/check-exam-answer", response_model=Optional[bool])
 async def check_answer(
         telegram_id: int,
         word_for_translate_id: uuid.UUID,
@@ -214,9 +192,13 @@ async def check_answer(
 ):
     query = select(Word).where(Word.translation_id == word_for_translate_id)
     word_for_translate = await session.scalar(query)
-    user_data = await session.scalar(select(User).where(User.telegram_id == telegram_id))
     if word_for_translate is None:
-        return f"Слово с id {word_for_translate_id} не найдено"
+        raise HTTPException(status_code=404, detail=f"Слово с id {word_for_translate_id} не найдено")
+
+    user_data = await session.scalar(select(User).where(User.telegram_id == telegram_id))
+    if user_data is None:
+        raise HTTPException(status_code=404, detail=f"Пользователь с id {telegram_id} не найден")
+
     if word_for_translate.id == user_choice_word_id:
         query = (select(ExamQuestion)
                  .join(Exam)
@@ -224,8 +206,14 @@ async def check_answer(
                              Exam.status == "going",
                              ExamQuestion.status == "awaiting response")))
         result = await session.execute(query)
-        objs = result.scalar()
-        objs.status = "right"
+        exam_question = result.scalar()
+
+        if exam_question is None:
+            raise HTTPException(status_code=404, detail="Вопрос экзамена не найден или уже был решен")
+
+        exam_question.status = "right"
+
+        session.add(exam_question)
         await session.commit()
         return True
     else:

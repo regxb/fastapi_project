@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, UUID4
 
 
 class UserCreate(BaseModel):
@@ -14,11 +14,3 @@ class UserInfo(BaseModel):
     telegram_id: int
     rating: str
     created_at: datetime
-
-    class Config:
-        orm_mode = True
-
-
-class Answer(BaseModel):
-    word_for_translate_id: uuid.UUID
-    user_choice_word_id: uuid.UUID
