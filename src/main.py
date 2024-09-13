@@ -1,15 +1,18 @@
 import random
 import uuid
+from typing import Optional, List
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import func, select, and_
 from fastapi.openapi.docs import get_swagger_ui_html
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import Word, User, Exam, ExamQuestion
+from .schemas import UserCreate, Answer, UsersList
 from .utils import get_random_words
 from .database import get_async_session
 
@@ -25,22 +28,29 @@ app.add_middleware(
 
 
 @app.post("/user")
-async def create_user(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
-    user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
-    if user:
-        return "Пользователь уже зарегестрирован"
-    user = User(telegram_id=telegram_id)
-    session.add(user)
-    await session.commit()
-    return "Есть пробитие"
+async def create_user(user_data: UserCreate, session: AsyncSession = Depends(get_async_session)):
+    existing_user = await session.scalar(select(User).where(User.telegram_id == user_data.telegram_id))
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Пользователь уже зарегистрирован")
+    new_user = User(telegram_id=user_data.telegram_id)
+    session.add(new_user)
+
+    try:
+        await session.commit()
+        await session.refresh(new_user)
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="Ошибка при сохранении пользователя")
+
+    return {"response": f"Пользователь с id {new_user.id} успешно создан"}
 
 
-@app.get("/user")
-async def get_user_list(session: AsyncSession = Depends(get_async_session)):
+@app.get("/user", response_model=List[UsersList])
+async def get_users_list(session: AsyncSession = Depends(get_async_session)):
     result = await session.execute(select(User))
     users_list = result.scalars().all()
 
-    return [{"user_id": user.id, "user_rating": user.rating, "created_at": user.created_at} for user in users_list]
+    return users_list
 
 
 @app.get("/get-word")
@@ -89,17 +99,16 @@ async def get_word(language: str, session: AsyncSession = Depends(get_async_sess
 #     }
 
 
-@app.get("/check-answer")
+@app.get("/check-answer", response_model=Optional[bool])
 async def check_answer(
-        word_for_translate_id: uuid.UUID,
-        user_choice_word_id: uuid.UUID,
+        answer: Answer,
         session: AsyncSession = Depends(get_async_session),
 ):
-    query = select(Word).where(Word.id == word_for_translate_id)
+    query = select(Word).where(Word.id == answer.word_for_translate_id)
     word_for_translate = await session.scalar(query)
     if word_for_translate is None:
-        return f"Слово с id {word_for_translate_id} не найдено"
-    if word_for_translate.translation_id == user_choice_word_id:
+        return f"Слово с id {answer.word_for_translate_id} не найдено"
+    if word_for_translate.translation_id == answer.user_choice_word_id:
         return True
     return False
 
