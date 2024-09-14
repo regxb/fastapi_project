@@ -8,7 +8,7 @@ from sqlalchemy.orm import joinedload
 
 from src.constants import part_of_speech_list
 from src.models import Word
-from src.quizzes.schemas import CheckAnswerResponse
+from src.quizzes.schemas import AnswerResponse
 from src.schemas import WordInfo
 from src.utils import get_random_words
 from src.database import get_async_session
@@ -34,18 +34,18 @@ async def check_answer(
     return False
 
 
-@router.get("/random-word", response_model=CheckAnswerResponse)
+@router.get("/random-word", response_model=AnswerResponse)
 async def get_random_word(language: str, session: AsyncSession = Depends(get_async_session)):
     word_for_translate, random_words = await get_random_words(session)
 
     if language == "eng":
-        response_data = CheckAnswerResponse(
+        response_data = AnswerResponse(
             word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.name),
             other_words=[WordInfo(id=word.translation.id, name=word.translation.name) for word in random_words]
         )
 
     elif language == "ru":
-        response_data = CheckAnswerResponse(
+        response_data = AnswerResponse(
             word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.translation.name),
             other_words=[WordInfo(id=word.translation.id, name=word.name) for word in random_words]
         )
@@ -60,7 +60,7 @@ async def get_available_parts_of_speech():
     return part_of_speech_list
 
 
-@router.get("/{part_of_speech}", response_model=CheckAnswerResponse)
+@router.get("/{part_of_speech}", response_model=AnswerResponse)
 async def get_word_from_part_of_speech(part_of_speech: str, session: AsyncSession = Depends(get_async_session)):
     if part_of_speech not in part_of_speech_list:
         raise HTTPException(status_code=404, detail="Часть речи не найдена")
@@ -72,7 +72,7 @@ async def get_word_from_part_of_speech(part_of_speech: str, session: AsyncSessio
     words = result.scalars().all()
     word_for_translate = words[0]
 
-    response_data = CheckAnswerResponse(
+    response_data = AnswerResponse(
         word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.translation.name),
         other_words=[WordInfo(id=word.translation_id, name=word.name) for word in words]
     )

@@ -5,6 +5,6 @@ from pydantic import BaseModel
 from src.schemas import WordInfo
 
 
-class CheckAnswerResponse(BaseModel):
+class AnswerResponse(BaseModel):
     word_for_translate: WordInfo
     other_words: List[WordInfo]
