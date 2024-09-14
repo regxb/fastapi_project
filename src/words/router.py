@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Word
-from src.words.schemas import WordResponse, WordInfo
+from src.words.schemas import CheckAnswerResponse
+from src.schemas import WordInfo
 from src.utils import get_random_words
 from src.database import get_async_session
 
@@ -16,18 +17,18 @@ router = APIRouter(
 )
 
 
-@router.get("/quiz", response_model=WordResponse)
+@router.get("/quiz", response_model=CheckAnswerResponse)
 async def get_random_word(language: str, session: AsyncSession = Depends(get_async_session)):
     word_for_translate, random_words = await get_random_words(session)
 
     if language == "eng":
-        response_data = WordResponse(
+        response_data = CheckAnswerResponse(
             word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.name),
             other_words=[WordInfo(id=word.translation.id, name=word.translation.name) for word in random_words]
         )
 
     elif language == "ru":
-        response_data = WordResponse(
+        response_data = CheckAnswerResponse(
             word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.translation.name),
             other_words=[WordInfo(id=word.translation.id, name=word.name) for word in random_words]
         )

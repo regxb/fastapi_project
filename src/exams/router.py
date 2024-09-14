@@ -8,8 +8,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from src.exams.schemas import ExamData
+from src.exams.schemas import ExamData, CheckExamAnswerResponse
 from src.models import Word, User, Exam, ExamQuestion
+from src.schemas import WordInfo
 from src.utils import get_random_words
 from src.database import get_async_session
 
@@ -35,12 +36,7 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
 
         result = await session.execute(query)
         word_for_translate = result.scalar()
-        if word_for_translate:
-            word_for_translate_data = {
-                "id": word_for_translate.translation.id,
-                "name": word_for_translate.translation.name
-            }
-        else:
+        if word_for_translate is None:
             query = select(ExamQuestion).where(ExamQuestion.exam_id == exam_id)
             result = await session.execute(query)
             word_objs = result.scalars().all()
@@ -50,10 +46,6 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
                      .where(Word.id not in word_ids).order_by(func.random()).limit(1))
             result = await session.execute(query)
             word_for_translate = result.scalars().first()
-            word_for_translate_data = {
-                "id": word_for_translate.translation.id,
-                "name": word_for_translate.translation.name
-            }
 
             new_exam_question = ExamQuestion(
                 exam_id=exam_id,
@@ -70,12 +62,16 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
                  .limit(2))
         result = await session.execute(query)
         random_words = result.scalars().all()
-        other_words = [{"id": random_word.id, "name": random_word.name} for random_word in random_words]
-        other_words.append({"id": word_for_translate.id, "name": word_for_translate.name})
+        other_words = [random_word for random_word in random_words]
+        other_words.append(word_for_translate)
         random.shuffle(other_words)
         exam_way = await session.scalar(select(func.count(ExamQuestion.id)).where(ExamQuestion.exam_id == exam_id))
-        return {"word_for_translate": word_for_translate_data, "other_words": other_words, "exam_way": exam_way}
 
+        response = CheckExamAnswerResponse(
+            word_for_translate=WordInfo(id=word_for_translate.translation.id, name=word_for_translate.translation.name),
+            other_words=[WordInfo(id=word.id, name=word.name) for word in other_words],
+            exam_way=exam_way
+        )
     else:
         word_for_translate, random_words = await get_random_words(session)
         user = await session.scalar(select(User).where(User.telegram_id == exam_user_data.telegram_id))
@@ -94,14 +90,12 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
         session.add(new_exam_question)
         await session.commit()
 
-        return {
-            "word_for_translate": {'id': word_for_translate.translation_id,
-                                   'name': word_for_translate.translation.name},
-            "other_words": [
-                {'id': word.id, 'name': word.name} for word in random_words
-            ],
-            "exam_way": 1
-        }
+        response = CheckExamAnswerResponse(
+            word_for_translate=WordInfo(id=word_for_translate.translation_id, name=word_for_translate.translation.name),
+            other_words=[WordInfo(id=word.id, name=word.name) for word in random_words],
+            exam_way=1
+        )
+    return response
 
 
 @router.get("/check-answer", response_model=Optional[bool])

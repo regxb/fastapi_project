@@ -1,13 +1,10 @@
-from typing import Optional, Literal, List
+from typing import List
 
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel
 
-
-class WordInfo(BaseModel):
-    id: UUID4
-    name: str
+from src.schemas import WordInfo
 
 
-class WordResponse(BaseModel):
+class CheckAnswerResponse(BaseModel):
     word_for_translate: WordInfo
     other_words: List[WordInfo]

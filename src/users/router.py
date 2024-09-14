@@ -19,7 +19,7 @@ router = APIRouter(
 async def create_user(user_data: UserCreate, session: AsyncSession = Depends(get_async_session)):
     existing_user = await session.scalar(select(User).where(User.telegram_id == user_data.telegram_id))
     if existing_user:
-        raise HTTPException(status_code=201, detail="Пользователь уже зарегистрирован")
+        raise HTTPException(status_code=203, detail="Пользователь уже зарегистрирован")
     new_user = User(telegram_id=user_data.telegram_id)
     session.add(new_user)
 
