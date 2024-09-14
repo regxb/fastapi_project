@@ -9,7 +9,7 @@ class ExamData(BaseModel):
     telegram_id: int
 
 
-class CheckExamAnswerResponse(BaseModel):
+class ExamAnswerResponse(BaseModel):
     word_for_translate: WordInfo
     other_words: List[WordInfo]
     exam_id: int

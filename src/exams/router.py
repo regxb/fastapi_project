@@ -1,6 +1,5 @@
 import random
 import uuid
-from typing import Optional
 
 from fastapi import Depends, HTTPException, APIRouter
 from sqlalchemy import and_
@@ -8,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from src.exams.schemas import ExamData, CheckExamAnswerResponse
+from src.exams.schemas import ExamData, ExamAnswerResponse
 from src.exams.utils import update_user_rating
 from src.models import Word, User, Exam, ExamQuestion
 from src.schemas import WordInfo
@@ -21,7 +20,7 @@ router = APIRouter(
 )
 
 
-@router.post("/start")
+@router.post("/start", response_model=ExamAnswerResponse)
 async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(get_async_session)):
     query = (select(Exam)
              .join(Exam.user)
@@ -74,7 +73,7 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
         random.shuffle(other_words)
 
         exam_way = await session.scalar(select(func.count(ExamQuestion.id)).where(ExamQuestion.exam_id == exam_id))
-        response = CheckExamAnswerResponse(
+        response = ExamAnswerResponse(
             word_for_translate=WordInfo(id=word_for_translate.translation.id, name=word_for_translate.translation.name),
             other_words=[WordInfo(id=word.id, name=word.name) for word in other_words],
             exam_id=exam_id,
@@ -98,7 +97,7 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
         session.add(new_exam_question)
         await session.commit()
 
-        response = CheckExamAnswerResponse(
+        response = ExamAnswerResponse(
             word_for_translate=WordInfo(id=word_for_translate.translation_id, name=word_for_translate.translation.name),
             other_words=[WordInfo(id=word.id, name=word.name) for word in random_words],
             exam_id=new_exam.id,
