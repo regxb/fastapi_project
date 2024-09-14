@@ -1,10 +1,12 @@
 import uuid
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import Depends, HTTPException, APIRouter
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
+from src.constants import part_of_speech_list
 from src.models import Word
 from src.quizzes.schemas import CheckAnswerResponse
 from src.schemas import WordInfo
@@ -15,6 +17,21 @@ router = APIRouter(
     prefix="/quiz",
     tags=["quiz"]
 )
+
+
+@router.get("/check-answer", response_model=Optional[bool])
+async def check_answer(
+        word_for_translate_id: uuid.UUID,
+        user_choice_word_id: uuid.UUID,
+        session: AsyncSession = Depends(get_async_session),
+):
+    query = select(Word).where(Word.id == word_for_translate_id)
+    word_for_translate = await session.scalar(query)
+    if word_for_translate is None:
+        raise HTTPException(status_code=404, detail=f"Слово с id {word_for_translate_id} не найдено")
+    if word_for_translate.translation_id == user_choice_word_id:
+        return True
+    return False
 
 
 @router.get("/random-word", response_model=CheckAnswerResponse)
@@ -38,16 +55,26 @@ async def get_random_word(language: str, session: AsyncSession = Depends(get_asy
     return response_data
 
 
-@router.get("/check-answer", response_model=Optional[bool])
-async def check_answer(
-        word_for_translate_id: uuid.UUID,
-        user_choice_word_id: uuid.UUID,
-        session: AsyncSession = Depends(get_async_session),
-):
-    query = select(Word).where(Word.id == word_for_translate_id)
-    word_for_translate = await session.scalar(query)
-    if word_for_translate is None:
-        raise HTTPException(status_code=404, detail=f"Слово с id {word_for_translate_id} не найдено")
-    if word_for_translate.translation_id == user_choice_word_id:
-        return True
-    return False
+@router.get("/available-parts-of-speech", response_model=List[str])
+async def get_available_parts_of_speech():
+    return part_of_speech_list
+
+
+@router.get("/{part_of_speech}", response_model=CheckAnswerResponse)
+async def get_word_from_part_of_speech(part_of_speech: str, session: AsyncSession = Depends(get_async_session)):
+    if part_of_speech not in part_of_speech_list:
+        raise HTTPException(status_code=404, detail="Часть речи не найдена")
+    query = (select(Word)
+             .options(joinedload(Word.translation))
+             .where(Word.part_of_speech == part_of_speech).order_by(func.random())
+             .limit(3))
+    result = await session.execute(query)
+    words = result.scalars().all()
+    word_for_translate = words[0]
+
+    response_data = CheckAnswerResponse(
+        word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.translation.name),
+        other_words=[WordInfo(id=word.translation_id, name=word.name) for word in words]
+    )
+
+    return response_data
