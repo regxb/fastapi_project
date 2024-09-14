@@ -45,9 +45,13 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
             word_ids = [word_obj.word_id for word_obj in word_objs]
             query = (select(Word)
                      .options(joinedload(Word.translation))
-                     .where(Word.id not in word_ids).order_by(func.random()).limit(1))
+                     .where(and_(Word.id.notin_(word_ids), Word.rating == exam_data.user.rating))
+                     .order_by(func.random()).limit(1))
             result = await session.execute(query)
             word_for_translate = result.scalars().first()
+
+            if word_for_translate is None:
+                raise HTTPException(status_code=404, detail="Слов для данного пользователя нет")
 
             new_exam_question = ExamQuestion(
                 exam_id=exam_id,
