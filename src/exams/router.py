@@ -22,12 +22,14 @@ router = APIRouter(
 
 @router.post("/start")
 async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(get_async_session)):
-    query = select(Exam).join(Exam.user).where(and_(User.telegram_id == exam_user_data.telegram_id, Exam.status == "going"))
+    query = (select(Exam)
+             .join(Exam.user)
+             .options(joinedload(Exam.user))
+             .where(and_(User.telegram_id == exam_user_data.telegram_id, Exam.status == "going")))
     result = await session.execute(query)
     exam_data = result.scalar()
     if exam_data:
         exam_id = exam_data.id
-
         query = ((select(Word)
                   .join(ExamQuestion))
                  .options(joinedload(Word.translation))
@@ -65,11 +67,12 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
         other_words = [random_word for random_word in random_words]
         other_words.append(word_for_translate)
         random.shuffle(other_words)
-        exam_way = await session.scalar(select(func.count(ExamQuestion.id)).where(ExamQuestion.exam_id == exam_id))
 
+        exam_way = await session.scalar(select(func.count(ExamQuestion.id)).where(ExamQuestion.exam_id == exam_id))
         response = CheckExamAnswerResponse(
             word_for_translate=WordInfo(id=word_for_translate.translation.id, name=word_for_translate.translation.name),
             other_words=[WordInfo(id=word.id, name=word.name) for word in other_words],
+            exam_id=exam_id,
             exam_way=exam_way
         )
     else:
@@ -93,14 +96,16 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
         response = CheckExamAnswerResponse(
             word_for_translate=WordInfo(id=word_for_translate.translation_id, name=word_for_translate.translation.name),
             other_words=[WordInfo(id=word.id, name=word.name) for word in random_words],
+            exam_id=new_exam.id,
             exam_way=1
         )
     return response
 
 
-@router.get("/check-answer", response_model=Optional[bool])
+@router.get("/check-answer")
 async def check_exam_answer(
         telegram_id: int,
+        exam_id: int,
         word_for_translate_id: uuid.UUID,
         user_choice_word_id: uuid.UUID,
         session: AsyncSession = Depends(get_async_session),
@@ -129,6 +134,15 @@ async def check_exam_answer(
         exam_question.status = "right"
 
         session.add(exam_question)
+
+        exam_data = await session.scalar(select(Exam).where(Exam.id == exam_id))
+        exam_way = await session.scalar(select(func.count(ExamQuestion.id)).where(ExamQuestion.exam_id == exam_id))
+        all_questions = await session.scalar(select(func.count(Word.id)).where(Word.rating == exam_data.user.rating))
+        if exam_way == all_questions:
+            exam_data.status = "end"
+            await session.commit()
+            return "exam is end"
+
         await session.commit()
         return True
     else:

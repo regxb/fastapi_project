@@ -12,4 +12,5 @@ class ExamData(BaseModel):
 class CheckExamAnswerResponse(BaseModel):
     word_for_translate: WordInfo
     other_words: List[WordInfo]
+    exam_id: int
     exam_way: int
