@@ -40,7 +40,7 @@ async def get_users_list(session: AsyncSession = Depends(get_async_session)):
     return users_list
 
 
-@router.get("/{user_id}", response_model=UserInfo)
+@router.get("/{telegram_id}", response_model=UserInfo)
 async def get_user_info(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
     user_data = await session.scalar(select(User).where(User.telegram_id == telegram_id))
     if user_data is None:
