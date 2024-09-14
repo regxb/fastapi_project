@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.exams.router import router as exams_router
 from src.users.router import router as users_router
-from src.words.router import router as words_router
+from src.quizzes.router import router as words_router
 
 app = FastAPI(docs_url=None, title='Learn API')
 

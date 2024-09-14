@@ -6,18 +6,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Word
-from src.words.schemas import CheckAnswerResponse
+from src.quizzes.schemas import CheckAnswerResponse
 from src.schemas import WordInfo
 from src.utils import get_random_words
 from src.database import get_async_session
 
 router = APIRouter(
-    prefix="/word",
-    tags=["word"]
+    prefix="/quiz",
+    tags=["quiz"]
 )
 
 
-@router.get("/quiz", response_model=CheckAnswerResponse)
+@router.get("/random-word", response_model=CheckAnswerResponse)
 async def get_random_word(language: str, session: AsyncSession = Depends(get_async_session)):
     word_for_translate, random_words = await get_random_words(session)
 
