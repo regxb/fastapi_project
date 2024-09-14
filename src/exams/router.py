@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.exams.schemas import ExamData, CheckExamAnswerResponse
+from src.exams.utils import update_user_rating
 from src.models import Word, User, Exam, ExamQuestion
 from src.schemas import WordInfo
 from src.utils import get_random_words
@@ -30,14 +31,13 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
     exam_data = result.scalar()
     if exam_data:
         exam_id = exam_data.id
-        query = ((select(Word)
-                  .join(ExamQuestion))
-                 .options(joinedload(Word.translation))
-                 .options(joinedload(Word.exam_question))
-                 .where(and_(ExamQuestion.exam_id == exam_id, ExamQuestion.status == "awaiting response")))
 
+        query = (select(ExamQuestion)
+                 .options(joinedload(ExamQuestion.word).options((joinedload(Word.translation))))
+                 .where(and_(ExamQuestion.exam_id == exam_id, ExamQuestion.status == "awaiting response")))
         result = await session.execute(query)
         word_for_translate = result.scalar()
+
         if word_for_translate is None:
             query = select(ExamQuestion).where(ExamQuestion.exam_id == exam_id)
             result = await session.execute(query)
@@ -56,7 +56,8 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
             )
             session.add(new_exam_question)
             await session.commit()
-
+        else:
+            word_for_translate = word_for_translate.word
         query = (((select(Word)
                    .where(and_(Word.part_of_speech == word_for_translate.part_of_speech,
                                Word.id != word_for_translate.id)))
@@ -140,6 +141,7 @@ async def check_exam_answer(
         all_questions = await session.scalar(select(func.count(Word.id)).where(Word.rating == exam_data.user.rating))
         if exam_way == all_questions:
             exam_data.status = "end"
+            exam_data.user.rating = await update_user_rating(exam_data.user.rating)
             await session.commit()
             return "exam is end"
 
