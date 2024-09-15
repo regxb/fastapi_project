@@ -84,3 +84,4 @@ class FavoriteWord(Base):
     word_id: Mapped[UUID] = mapped_column(ForeignKey("words.id"))
 
     user: Mapped["User"] = relationship(back_populates="favorite_words")
+    word: Mapped["Word"] = relationship()

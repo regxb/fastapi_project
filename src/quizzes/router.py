@@ -1,4 +1,5 @@
 import uuid
+import random
 from typing import Optional, List
 
 from fastapi import Depends, HTTPException, APIRouter
@@ -60,26 +61,6 @@ async def get_available_parts_of_speech():
     return part_of_speech_list
 
 
-@router.get("/{part_of_speech}", response_model=AnswerResponse)
-async def get_word_from_part_of_speech(part_of_speech: str, session: AsyncSession = Depends(get_async_session)):
-    if part_of_speech not in part_of_speech_list:
-        raise HTTPException(status_code=404, detail="Часть речи не найдена")
-    query = (select(Word)
-             .options(joinedload(Word.translation))
-             .where(Word.part_of_speech == part_of_speech).order_by(func.random())
-             .limit(3))
-    result = await session.execute(query)
-    words = result.scalars().all()
-    word_for_translate = words[0]
-
-    response_data = AnswerResponse(
-        word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.translation.name),
-        other_words=[WordInfo(id=word.translation_id, name=word.name) for word in words]
-    )
-
-    return response_data
-
-
 @router.post("/favorite-word")
 async def add_favorite_word(data: FavoriteWordBase, session: AsyncSession = Depends(get_async_session)):
     query = select(User).where(User.telegram_id == data.telegram_id)
@@ -103,3 +84,51 @@ async def add_favorite_word(data: FavoriteWordBase, session: AsyncSession = Depe
     session.add(new_favorite_word)
     await session.commit()
     return {"message": "Слово успешно добавлено"}
+
+
+@router.get("/favorite-word")
+async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
+    user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    query = (select(FavoriteWord)
+             .options(joinedload(FavoriteWord.word).options(joinedload(Word.translation)))
+             .where(FavoriteWord.user_id == user.id).order_by(func.random()).limit(1))
+    result = await session.scalar(query)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Пользователь не добавил ни одного слова")
+    random_favorite_word = result.word
+    query = (select(Word).options(joinedload(Word.translation))
+             .where(and_(Word.part_of_speech == random_favorite_word.part_of_speech,
+                         Word.id != random_favorite_word.id))
+             .order_by(func.random()).limit(2))
+    result = await session.execute(query)
+    random_words = [random_word for random_word in result.scalars().all()]
+    random_words.append(random_favorite_word)
+    random.shuffle(random_words)
+
+    response_data = AnswerResponse(
+        word_for_translate=WordInfo(id=random_favorite_word.id, name=random_favorite_word.translation.name),
+        other_words=[WordInfo(id=word.translation.id, name=word.name) for word in random_words]
+    )
+    return response_data
+
+
+@router.get("/{part_of_speech}", response_model=AnswerResponse)
+async def get_word_from_part_of_speech(part_of_speech: str, session: AsyncSession = Depends(get_async_session)):
+    if part_of_speech not in part_of_speech_list:
+        raise HTTPException(status_code=404, detail="Часть речи не найдена")
+    query = (select(Word)
+             .options(joinedload(Word.translation))
+             .where(Word.part_of_speech == part_of_speech).order_by(func.random())
+             .limit(3))
+    result = await session.execute(query)
+    words = result.scalars().all()
+    word_for_translate = words[0]
+
+    response_data = AnswerResponse(
+        word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.translation.name),
+        other_words=[WordInfo(id=word.translation_id, name=word.name) for word in words]
+    )
+
+    return response_data
