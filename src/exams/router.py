@@ -11,7 +11,7 @@ from src.exams.schemas import ExamData, ExamAnswerResponse
 from src.exams.utils import update_user_rating
 from src.models import Word, User, Exam, ExamQuestion
 from src.schemas import WordInfo
-from src.utils import get_random_words
+from src.utils import get_random_words, check_favorite_words
 from src.database import get_async_session
 
 router = APIRouter(
@@ -29,6 +29,7 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
     result = await session.execute(query)
     exam_data = result.scalar()
     if exam_data:
+        user_id = exam_data.user_id
         exam_id = exam_data.id
 
         query = (select(ExamQuestion)
@@ -73,15 +74,18 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
         random.shuffle(other_words)
 
         exam_way = await session.scalar(select(func.count(ExamQuestion.id)).where(ExamQuestion.exam_id == exam_id))
+        in_favorites = await check_favorite_words(user_id=user_id, word_id=word_for_translate.id, session=session)
         response = ExamAnswerResponse(
             word_for_translate=WordInfo(id=word_for_translate.translation.id, name=word_for_translate.translation.name),
             other_words=[WordInfo(id=word.id, name=word.name) for word in other_words],
             exam_id=exam_id,
-            exam_way=exam_way
+            exam_way=exam_way,
+            in_favorites=in_favorites
         )
     else:
         word_for_translate, random_words = await get_random_words(session)
         user = await session.scalar(select(User).where(User.telegram_id == exam_user_data.telegram_id))
+        user_id = user.id
         new_exam = Exam(
             user_id=user.id,
             status="going",
@@ -97,12 +101,15 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
         session.add(new_exam_question)
         await session.commit()
 
+        in_favorites = await check_favorite_words(user_id=user_id, word_id=word_for_translate.id, session=session)
         response = ExamAnswerResponse(
             word_for_translate=WordInfo(id=word_for_translate.translation_id, name=word_for_translate.translation.name),
             other_words=[WordInfo(id=word.id, name=word.name) for word in random_words],
             exam_id=new_exam.id,
-            exam_way=1
+            exam_way=1,
+            in_favorites=in_favorites
         )
+
     return response
 
 

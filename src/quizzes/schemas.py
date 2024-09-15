@@ -8,6 +8,12 @@ from src.schemas import WordInfo
 class AnswerResponse(BaseModel):
     word_for_translate: WordInfo
     other_words: List[WordInfo]
+    in_favorites: bool
+
+
+class FavoriteAnswerResponse(BaseModel):
+    word_for_translate: WordInfo
+    other_words: List[WordInfo]
 
 
 class FavoriteWordBase(BaseModel):
