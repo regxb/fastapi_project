@@ -76,8 +76,8 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
         exam_way = await session.scalar(select(func.count(ExamQuestion.id)).where(ExamQuestion.exam_id == exam_id))
         in_favorites = await check_favorite_words(user_id=user_id, word_id=word_for_translate.id, session=session)
         response = ExamAnswerResponse(
-            word_for_translate=WordInfo(id=word_for_translate.translation.id, name=word_for_translate.translation.name),
-            other_words=[WordInfo(id=word.id, name=word.name) for word in other_words],
+            word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.translation.name),
+            other_words=[WordInfo(id=word.translation_id, name=word.name) for word in other_words],
             exam_id=exam_id,
             exam_way=exam_way,
             in_favorites=in_favorites
@@ -103,8 +103,8 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
 
         in_favorites = await check_favorite_words(user_id=user_id, word_id=word_for_translate.id, session=session)
         response = ExamAnswerResponse(
-            word_for_translate=WordInfo(id=word_for_translate.translation_id, name=word_for_translate.translation.name),
-            other_words=[WordInfo(id=word.id, name=word.name) for word in random_words],
+            word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.translation.name),
+            other_words=[WordInfo(id=word.translation_id, name=word.name) for word in random_words],
             exam_id=new_exam.id,
             exam_way=1,
             in_favorites=in_favorites
@@ -121,7 +121,7 @@ async def check_exam_answer(
         user_choice_word_id: uuid.UUID,
         session: AsyncSession = Depends(get_async_session),
 ):
-    query = select(Word).where(Word.translation_id == word_for_translate_id)
+    query = select(Word).where(Word.id == word_for_translate_id)
     word_for_translate = await session.scalar(query)
     if word_for_translate is None:
         raise HTTPException(status_code=404, detail=f"Слово с id {word_for_translate_id} не найдено")
@@ -130,7 +130,7 @@ async def check_exam_answer(
     if user_data is None:
         raise HTTPException(status_code=404, detail=f"Пользователь с id {telegram_id} не найден")
 
-    if word_for_translate.id == user_choice_word_id:
+    if word_for_translate.translation_id == user_choice_word_id:
         query = (select(ExamQuestion)
                  .join(Exam)
                  .where(and_(Exam.user_id == user_data.id,
