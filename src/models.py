@@ -19,6 +19,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     exam: Mapped["Exam"] = relationship(back_populates="user")
+    favorite_words: Mapped["FavoriteWord"] = relationship(back_populates="user")
 
 
 class Exam(Base):
@@ -73,3 +74,14 @@ class TranslationWord(Base):
     name: Mapped[str]
 
     words: Mapped["Word"] = relationship(back_populates="translation")
+
+
+class FavoriteWord(Base):
+    __tablename__ = 'favorite_words'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    word_id: Mapped[UUID] = mapped_column(ForeignKey("words.id"))
+
+    user: Mapped["User"] = relationship(back_populates="favorite_words")
+    word: Mapped["Word"] = relationship()
