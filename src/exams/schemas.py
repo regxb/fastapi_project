@@ -14,3 +14,4 @@ class ExamAnswerResponse(BaseModel):
     other_words: List[WordInfo]
     exam_id: int
     exam_way: int
+    in_favorites: bool
