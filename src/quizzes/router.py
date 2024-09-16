@@ -89,6 +89,20 @@ async def add_favorite_word(data: FavoriteWordBase, session: AsyncSession = Depe
     return {"message": "Слово успешно добавлено"}
 
 
+@router.delete("/favorite-word")
+async def delete_favorite_word(data: FavoriteWordBase, session: AsyncSession = Depends(get_async_session)):
+    query = (select(FavoriteWord)
+             .join(FavoriteWord.user)
+             .where(User.telegram_id == data.telegram_id, FavoriteWord.word_id == data.word_id))
+    user_favorite_word = await session.scalar(query)
+
+    if user_favorite_word is None:
+        raise HTTPException(status_code=404, detail="У пользователя нет такого слова в избранном")
+    await session.delete(user_favorite_word)
+    await session.commit()
+    return {"message": "Слово было удалено"}
+
+
 @router.get("/favorite-word", response_model=FavoriteAnswerResponse)
 async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
     user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
@@ -116,7 +130,7 @@ async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Dep
     return response_data
 
 
-@router.get("/{part_of_speech}", response_model=AnswerResponse)
+@router.get("/part_of_speech", response_model=AnswerResponse)
 async def get_word_from_part_of_speech(
         part_of_speech: str,
         telegram_id: int,
