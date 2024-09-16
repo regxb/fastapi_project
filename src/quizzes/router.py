@@ -124,7 +124,7 @@ async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Dep
     random_words.append(random_favorite_word)
     random.shuffle(random_words)
     response_data = FavoriteAnswerResponse(
-        word_for_translate=WordInfo.model_validate(random_favorite_word),
+        word_for_translate=WordInfo(id=random_favorite_word.id, name=random_favorite_word.translation.name),
         other_words=[WordInfo.model_validate(word) for word in random_words]
     )
     return response_data
