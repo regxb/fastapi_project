@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Dict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from src.schemas import WordInfo
 
@@ -15,3 +15,9 @@ class ExamAnswerResponse(BaseModel):
     exam_id: int
     exam_way: int
     in_favorites: bool
+
+
+class ExamStatistic(BaseModel):
+    exams_qty: int
+    questions_qty: int
+    fail_words: List

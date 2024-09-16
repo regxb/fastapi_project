@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from src.exams.schemas import ExamData, ExamAnswerResponse
+from src.exams.schemas import ExamData, ExamAnswerResponse, ExamStatistic
 from src.exams.utils import update_user_rating
 from src.models import Word, User, Exam, ExamQuestion
 from src.schemas import WordInfo
@@ -168,3 +168,35 @@ async def check_exam_answer(
         exam_question_data.status = "failed"
         await session.commit()
     return False
+
+
+@router.get("/statistics", response_model=ExamStatistic)
+async def get_statistics(
+        telegram_id: int,
+        session: AsyncSession = Depends(get_async_session)
+):
+    query = (select(func.count(Exam.id))
+             .join(Exam.user)
+             .where(User.telegram_id == telegram_id))
+    quantity_user_exams = await session.scalar(query)
+
+    query = (select(func.count(ExamQuestion.id))
+             .join(Exam, ExamQuestion.exam_id == Exam.id)
+             .join(User, Exam.user_id == User.id)
+             .where(User.telegram_id == telegram_id))
+    quantity_question_exams = await session.scalar(query)
+
+    query = (select(ExamQuestion)
+             .join(Exam, ExamQuestion.exam_id == Exam.id)
+             .join(User, Exam.user_id == User.id)
+             .options(joinedload(ExamQuestion.word).options(joinedload(Word.translation)))
+             .where(and_(User.telegram_id == telegram_id, ExamQuestion.status == "failed")))
+    result = await session.execute(query)
+    all_user_fails = result.scalars().all()
+
+    response = (ExamStatistic
+                (exams_qty=quantity_user_exams,
+                 questions_qty=quantity_question_exams,
+                 fail_words=[{"name": word.word.name, "translation": word.word.translation.name} for word in all_user_fails])
+                )
+    return response
