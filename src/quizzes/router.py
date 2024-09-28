@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.constants import part_of_speech_list
-from src.models import Word, FavoriteWord, User
+from src.models import Word, FavoriteWord, User, Sentence, TranslationSentence
 from src.quizzes.schemas import AnswerResponse, FavoriteWordBase, FavoriteAnswerResponse
 from src.schemas import WordInfo
 from src.utils import get_random_words, check_favorite_words
@@ -155,3 +155,22 @@ async def get_word_from_part_of_speech(
     )
 
     return response_data
+
+
+@router.post("/add-sentence")
+async def add_sentence(
+        sentence_en: str,
+        sentence_ru: str,
+        session: AsyncSession = Depends(get_async_session)):
+    new_translation_sentence = TranslationSentence(
+        name=sentence_ru,
+    )
+    session.add(new_translation_sentence)
+    await session.commit()
+
+    new_sentence = Sentence(
+        name=sentence_en,
+        translation_id=new_translation_sentence.id
+    )
+    session.add(new_sentence)
+    await session.commit()
