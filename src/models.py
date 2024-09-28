@@ -85,3 +85,30 @@ class FavoriteWord(Base):
 
     user: Mapped["User"] = relationship(back_populates="favorite_words")
     word: Mapped["Word"] = relationship()
+
+
+class Sentence(Base):
+    __tablename__ = 'sentences'
+
+    id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    name: Mapped[str]
+    translation_id: Mapped[UUID] = mapped_column(ForeignKey("translation_sentences.id"))
+
+    translation: Mapped["TranslationSentence"] = relationship(back_populates="sentence")
+
+
+class TranslationSentence(Base):
+    __tablename__ = 'translation_sentences'
+
+    id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    name: Mapped[str]
+
+    sentence: Mapped["Sentence"] = relationship(back_populates="translation")
