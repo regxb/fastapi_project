@@ -91,7 +91,7 @@ class FavoriteWord(Base):
 class Module(Base):
     __tablename__ = 'modules'
 
-    id: Mapped[UUID] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
 
     section: Mapped["Section"] = relationship(back_populates="module")
@@ -100,9 +100,9 @@ class Module(Base):
 class Section(Base):
     __tablename__ = 'sections'
 
-    id: Mapped[UUID] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
-    module_id: Mapped[UUID] = mapped_column(ForeignKey("modules.id"))
+    module_id: Mapped[int] = mapped_column(ForeignKey("modules.id"))
     word_id: Mapped[UUID] = mapped_column(ForeignKey("words.id"))
     sentence_id: Mapped[UUID] = mapped_column(ForeignKey("sentences.id"))
 
