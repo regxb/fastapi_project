@@ -2,14 +2,15 @@ import uuid
 import random
 from typing import Optional, List, Dict
 
-from fastapi import Depends, HTTPException, APIRouter
+from fastapi import Depends, HTTPException, APIRouter, Query
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.constants import part_of_speech_list
-from src.models import Word, FavoriteWord, User
-from src.quizzes.schemas import AnswerResponse, FavoriteWordBase, FavoriteAnswerResponse
+from src.models import Word, FavoriteWord, User, Sentence, TranslationSentence, TranslationWord
+from src.quizzes.schemas import AnswerResponse, FavoriteWordBase, FavoriteAnswerResponse, SentenceAnswerResponse, \
+    SentenceInfo
 from src.schemas import WordInfo
 from src.utils import get_random_words, check_favorite_words
 from src.database import get_async_session
@@ -155,3 +156,85 @@ async def get_word_from_part_of_speech(
     )
 
     return response_data
+
+
+@router.post("/add-word")
+async def add_word(
+        word_ru: str,
+        word_eng: str,
+        part_of_speech: str,
+        session: AsyncSession = Depends(get_async_session)):
+    new_translation_word = TranslationWord(name=word_ru)
+    session.add(new_translation_word)
+    await session.commit()
+
+    new_word = Word(name=word_eng, part_of_speech=part_of_speech, translation_id=new_translation_word.id)
+    session.add(new_word)
+    await session.commit()
+
+
+@router.post("/add-sentence")
+async def add_sentence(
+        sentence_en: str,
+        sentence_ru: str,
+        session: AsyncSession = Depends(get_async_session)):
+    new_translation_sentence = TranslationSentence(
+        name=sentence_ru,
+    )
+    session.add(new_translation_sentence)
+    await session.commit()
+
+    new_sentence = Sentence(
+        name=sentence_en,
+        translation_id=new_translation_sentence.id
+    )
+    session.add(new_sentence)
+    await session.commit()
+
+
+@router.get("/get-random-sentence", response_model=SentenceAnswerResponse)
+async def get_random_sentence(language: str, session: AsyncSession = Depends(get_async_session)):
+    query = select(Sentence).options(joinedload(Sentence.translation)).order_by(func.random()).limit(1)
+    sentence = await session.scalar(query)
+    if language == "ru":
+        sentence_words = sentence.translation.name.split()
+        query = await session.execute(select(TranslationWord)
+                                      .where(TranslationWord.name.notin_(sentence_words))
+                                      .order_by(func.random()).limit(random.randint(1, 3)))
+        result = query.scalars().all()
+        other_words = [w.name for w in result]
+        [other_words.append(w) for w in sentence_words]
+        random.shuffle(other_words)
+        response_data = SentenceAnswerResponse(
+            sentence_for_translate=SentenceInfo(id=sentence.id, name=sentence.name),
+            other_words=other_words,
+        )
+        return response_data
+
+    elif language == "en":
+        sentence_words = sentence.translation.name.split()
+        query = await session.execute(select(Word)
+                                      .options(joinedload(Word.translation))
+                                      .where(Word.name.notin_(sentence_words))
+                                      .order_by(func.random()).limit(random.randint(1, 3)))
+        result = query.scalars().all()
+        other_words = [w.translation.name for w in result]
+        [other_words.append(w) for w in sentence_words]
+        random.shuffle(other_words)
+        response_data = SentenceAnswerResponse(
+            sentence_for_translate=SentenceInfo(id=sentence.id, name=sentence.name),
+            other_words=other_words,
+        )
+        return response_data
+
+
+@router.get("/check-sentence-answer")
+async def check_sentence_answer(
+        sentence_id: uuid.UUID,
+        user_words: List[str] = Query(...),
+        session: AsyncSession = Depends(get_async_session)):
+    sentence = await session.scalar(select(Sentence).where(Sentence.id == sentence_id))
+    if sentence.name.lower() == " ".join(user_words):
+        return True
+    else:
+        return False

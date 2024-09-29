@@ -61,6 +61,7 @@ class Word(Base):
 
     translation: Mapped["TranslationWord"] = relationship(back_populates="words")
     exam_question: Mapped["ExamQuestion"] = relationship(back_populates="word")
+    section: Mapped["Section"] = relationship(back_populates="word")
 
 
 class TranslationWord(Base):
@@ -85,3 +86,54 @@ class FavoriteWord(Base):
 
     user: Mapped["User"] = relationship(back_populates="favorite_words")
     word: Mapped["Word"] = relationship()
+
+
+class Module(Base):
+    __tablename__ = 'modules'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+
+    section: Mapped["Section"] = relationship(back_populates="module")
+
+
+class Section(Base):
+    __tablename__ = 'sections'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    module_id: Mapped[int] = mapped_column(ForeignKey("modules.id"))
+    word_id: Mapped[UUID] = mapped_column(ForeignKey("words.id"))
+    sentence_id: Mapped[UUID] = mapped_column(ForeignKey("sentences.id"))
+
+    module: Mapped["Module"] = relationship(back_populates="section")
+    word: Mapped["Word"] = relationship(back_populates="section")
+    sentence: Mapped["Sentence"] = relationship(back_populates="")
+
+
+class Sentence(Base):
+    __tablename__ = 'sentences'
+
+    id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    name: Mapped[str]
+    translation_id: Mapped[UUID] = mapped_column(ForeignKey("translation_sentences.id"))
+
+    translation: Mapped["TranslationSentence"] = relationship(back_populates="sentence")
+    section: Mapped["Section"] = relationship(back_populates="sentence")
+
+
+class TranslationSentence(Base):
+    __tablename__ = 'translation_sentences'
+
+    id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    name: Mapped[str]
+
+    sentence: Mapped["Sentence"] = relationship(back_populates="translation")
