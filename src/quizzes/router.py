@@ -234,7 +234,7 @@ async def check_sentence_answer(
         user_words: List[str] = Query(...),
         session: AsyncSession = Depends(get_async_session)):
     sentence = await session.scalar(select(Sentence).where(Sentence.id == sentence_id))
-    if sentence.name.lower() == " ".join(user_words):
+    if sentence.name.lower().replace(",", "") == " ".join(user_words):
         return True
     else:
         return False
