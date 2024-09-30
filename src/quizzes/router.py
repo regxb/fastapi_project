@@ -163,12 +163,13 @@ async def add_word(
         word_ru: str,
         word_eng: str,
         part_of_speech: str,
+        rating: str,
         session: AsyncSession = Depends(get_async_session)):
     new_translation_word = TranslationWord(name=word_ru)
     session.add(new_translation_word)
-    await session.commit()
+    await session.flush()
 
-    new_word = Word(name=word_eng, part_of_speech=part_of_speech, translation_id=new_translation_word.id)
+    new_word = Word(name=word_eng, part_of_speech=part_of_speech, translation_id=new_translation_word.id, rating=rating)
     session.add(new_word)
     await session.commit()
 
@@ -182,7 +183,7 @@ async def add_sentence(
         name=sentence_ru,
     )
     session.add(new_translation_sentence)
-    await session.commit()
+    await session.flush()
 
     new_sentence = Sentence(
         name=sentence_en,
@@ -234,7 +235,7 @@ async def check_sentence_answer(
         user_words: List[str] = Query(...),
         session: AsyncSession = Depends(get_async_session)):
     sentence = await session.scalar(select(Sentence).where(Sentence.id == sentence_id))
-    if sentence.name.lower().replace(",", "") == " ".join(user_words):
+    if sentence.name.lower().replace(",", "") == " ".join(user_words).lower():
         return True
     else:
         return False
