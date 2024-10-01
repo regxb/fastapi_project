@@ -91,7 +91,7 @@ async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(g
             status="going",
         )
         session.add(new_exam)
-        await session.commit()
+        await session.flush()
 
         new_exam_question = ExamQuestion(
             exam_id=new_exam.id,
