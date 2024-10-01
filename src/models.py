@@ -137,3 +137,27 @@ class TranslationSentence(Base):
     name: Mapped[str]
 
     sentence: Mapped["Sentence"] = relationship(back_populates="translation")
+
+
+class WordV2(Base):
+    __tablename__ = 'words2'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    language_id: Mapped[int] = mapped_column(ForeignKey("languages.id"))
+
+
+class TranslationV2(Base):
+    __tablename__ = 'translationV2'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    translation_word_id: Mapped[int] = mapped_column(ForeignKey("words2.id"))
+    name: Mapped[str]
+    language_id: Mapped[int] = mapped_column(ForeignKey("languages.id"))
+
+
+class Language(Base):
+    __tablename__ = 'languages'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    language: Mapped[str]
