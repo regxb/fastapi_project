@@ -9,11 +9,12 @@ from sqlalchemy.orm import joinedload
 
 from src.constants import part_of_speech_list
 from src.models import Word, TranslationWord, User, FavoriteWord
-from src.quizzes.query import get_random_word_for_translate, get_random_words
+from src.quizzes.query import get_random_word_for_translate, get_random_words, get_random_user_favorite_word
 from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord
 from src.schemas import WordInfo
 # from src.utils import get_random_words, check_favorite_words
 from src.database import get_async_session
+from src.users.query import get_user
 
 router = APIRouter(
     prefix="/quiz",
@@ -38,7 +39,6 @@ async def get_random_word(
         language_from: str,
         language_to: str,
         session: AsyncSession = Depends(get_async_session)):
-
     language_from_id = languages.get(language_from)
     language_to_id = languages.get(language_to)
 
@@ -56,16 +56,9 @@ async def get_random_word(
     raise HTTPException(status_code=404, detail="Язык не найден")
 
 
-#
-#
-# @router.get("/available-parts-of-speech")
-# async def get_available_parts_of_speech():
-#     return part_of_speech_list
-#
-#
 @router.post("/favorite-word")
 async def add_favorite_word(data: UserFavoriteWord, session: AsyncSession = Depends(get_async_session)):
-    user = await session.get(User, data.telegram_id)
+    user = await get_user(session, data.telegram_id)
     word = await session.get(Word, data.word_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
@@ -86,46 +79,38 @@ async def add_favorite_word(data: UserFavoriteWord, session: AsyncSession = Depe
     except Exception as e:
         await session.rollback()
         raise HTTPException(status_code=500, detail="Ошибка при добавлении слова в избранное")
-#
-# @router.delete("/favorite-word")
-# async def delete_favorite_word(data: FavoriteWordBase, session: AsyncSession = Depends(get_async_session)):
-#     query = (select(FavoriteWord)
-#              .join(FavoriteWord.user)
-#              .where(User.telegram_id == data.telegram_id, FavoriteWord.word_id == data.word_id))
-#     user_favorite_word = await session.scalar(query)
-#
-#     if user_favorite_word is None:
-#         raise HTTPException(status_code=404, detail="У пользователя нет такого слова в избранном")
-#     await session.delete(user_favorite_word)
-#     await session.commit()
-#     return {"message": "Слово было удалено"}
-#
-#
-# @router.get("/favorite-word", response_model=FavoriteAnswerResponse)
-# async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
-#     user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
-#     if user is None:
-#         raise HTTPException(status_code=404, detail="Пользователь не найден")
-#     query = (select(FavoriteWord)
-#              .options(joinedload(FavoriteWord.word).options(joinedload(Word.translation)))
-#              .where(FavoriteWord.user_id == user.id).order_by(func.random()).limit(1))
-#     result = await session.scalar(query)
-#     if result is None:
-#         raise HTTPException(status_code=404, detail="Пользователь не добавил ни одного слова")
-#     random_favorite_word = result.word
-#     query = (select(Word).options(joinedload(Word.translation))
-#              .where(and_(Word.part_of_speech == random_favorite_word.part_of_speech,
-#                          Word.id != random_favorite_word.id))
-#              .order_by(func.random()).limit(2))
-#     result = await session.execute(query)
-#     random_words = [random_word for random_word in result.scalars().all()]
-#     random_words.append(random_favorite_word)
-#     random.shuffle(random_words)
-#     response_data = FavoriteAnswerResponse(
-#         word_for_translate=WordInfo(id=random_favorite_word.id, name=random_favorite_word.translation.name),
-#         other_words=[WordInfo(id=word.translation.id, name=word.name) for word in random_words]
-#     )
-#     return response_data
+
+
+@router.delete("/favorite-word")
+async def delete_favorite_word(data: UserFavoriteWord, session: AsyncSession = Depends(get_async_session)):
+    query = (select(FavoriteWord)
+             .join(FavoriteWord.user)
+             .where(and_(User.telegram_id == data.telegram_id, FavoriteWord.word_id == data.word_id)))
+    user_favorite_word = await session.scalar(query)
+
+    if user_favorite_word is None:
+        raise HTTPException(status_code=404, detail="У пользователя нет такого слова в избранном")
+    await session.delete(user_favorite_word)
+    await session.commit()
+    return {"message": "Слово было удалено"}
+
+
+@router.get("/favorite-word")
+async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
+    user = await get_user(session, telegram_id)
+    random_user_favorite_word = await get_random_user_favorite_word(session, user.id)
+    translate_to_language_id = random_user_favorite_word.word.translation.to_language_id
+    other_words = await get_random_words(session, translate_to_language_id, random_user_favorite_word.word.id)
+    other_words.append(random_user_favorite_word.word.translation)
+    random.shuffle(other_words)
+
+    response = RandomWordResponse(
+        word_for_translate=WordInfo(name=random_user_favorite_word.word.name, id=random_user_favorite_word.word_id),
+        other_words=[WordInfo(name=w.name, id=w.id) for w in other_words]
+    )
+    return response
+
+
 #
 #
 # @router.get("/part_of_speech", response_model=AnswerResponse)
@@ -236,3 +221,4 @@ async def add_favorite_word(data: UserFavoriteWord, session: AsyncSession = Depe
 #         return True
 #     else:
 #         return False
+
