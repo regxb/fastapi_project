@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import ForeignKey, func, DateTime
+from sqlalchemy import ForeignKey, func, DateTime, text
 import uuid
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -46,35 +46,35 @@ class ExamQuestion(Base):
     word: Mapped["Word"] = relationship(back_populates="exam_question")
 
 
-class Word(Base):
-    __tablename__ = 'words'
-
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4
-    )
-    name: Mapped[str]
-    part_of_speech: Mapped[str]
-    rating: Mapped[str]
-    translation_id: Mapped[int] = mapped_column(ForeignKey('translation_words.id'))
-
-    translation: Mapped["TranslationWord"] = relationship(back_populates="words")
-    exam_question: Mapped["ExamQuestion"] = relationship(back_populates="word")
-    section: Mapped["Section"] = relationship(back_populates="word")
-
-
-class TranslationWord(Base):
-    __tablename__ = 'translation_words'
-
-    id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4
-    )
-    name: Mapped[str]
-
-    words: Mapped["Word"] = relationship(back_populates="translation")
+# class Word(Base):
+#     __tablename__ = 'words'
+#
+#     id: Mapped[UUID] = mapped_column(
+#         UUID(as_uuid=True),
+#         primary_key=True,
+#         default=uuid.uuid4
+#     )
+#     name: Mapped[str]
+#     part_of_speech: Mapped[str]
+#     rating: Mapped[str]
+#     translation_id: Mapped[int] = mapped_column(ForeignKey('translation_words.id'))
+#
+#     translation: Mapped["TranslationWord"] = relationship(back_populates="words")
+#     exam_question: Mapped["ExamQuestion"] = relationship(back_populates="word")
+#     section: Mapped["Section"] = relationship(back_populates="word")
+#
+#
+# class TranslationWord(Base):
+#     __tablename__ = 'translation_words'
+#
+#     id: Mapped[UUID] = mapped_column(
+#         UUID(as_uuid=True),
+#         primary_key=True,
+#         default=uuid.uuid4
+#     )
+#     name: Mapped[str]
+#
+#     words: Mapped["Word"] = relationship(back_populates="translation")
 
 
 class FavoriteWord(Base):
@@ -139,21 +139,36 @@ class TranslationSentence(Base):
     sentence: Mapped["Sentence"] = relationship(back_populates="translation")
 
 
-class WordV2(Base):
-    __tablename__ = 'words2'
+class Word(Base):
+    __tablename__ = 'words'
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()")
+    )
     name: Mapped[str]
     language_id: Mapped[int] = mapped_column(ForeignKey("languages.id"))
+    part_of_speech: Mapped[str]
+    level: Mapped[str]
+
+    translation: Mapped["TranslationWord"] = relationship(back_populates="word")
 
 
-class TranslationV2(Base):
-    __tablename__ = 'translationV2'
+class TranslationWord(Base):
+    __tablename__ = 'translation_words'
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    translation_word_id: Mapped[int] = mapped_column(ForeignKey("words2.id"))
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()")
+    )
+    word_id: Mapped[UUID] = mapped_column(ForeignKey("words.id"))
+    from_language_id: Mapped[int] = mapped_column(ForeignKey("languages.id"))
+    to_language_id: Mapped[int] = mapped_column(ForeignKey("languages.id"))
     name: Mapped[str]
-    language_id: Mapped[int] = mapped_column(ForeignKey("languages.id"))
+
+    word: Mapped["Word"] = relationship(back_populates="translation")
 
 
 class Language(Base):
