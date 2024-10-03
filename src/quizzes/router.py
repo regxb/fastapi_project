@@ -24,21 +24,16 @@ languages = {"ru": 1, "en": 2}
 
 #
 #
-# @router.get("/check-answer", response_model=Optional[bool])
-# async def check_answer(
-#         word_for_translate_id: uuid.UUID,
-#         user_choice_word_id: uuid.UUID,
-#         session: AsyncSession = Depends(get_async_session),
-# ):
-#     query = select(Word).where(Word.id == word_for_translate_id)
-#     word_for_translate = await session.scalar(query)
-#     if word_for_translate is None:
-#         raise HTTPException(status_code=404, detail=f"Слово с id {word_for_translate_id} не найдено")
-#     if word_for_translate.translation_id == user_choice_word_id:
-#         return True
-#     return False
-#
-#
+@router.get("/check-answer", response_model=bool)
+async def check_answer(
+        word_for_translate_id: uuid.UUID,
+        user_word_id: uuid.UUID,
+        session: AsyncSession = Depends(get_async_session)
+):
+    word = await session.get(TranslationWord, user_word_id)
+    return word_for_translate_id == word.word_id
+
+
 @router.get("/random-word", response_model=RandomWordResponse)
 async def get_random_word(
         language_from: str,
@@ -66,6 +61,7 @@ async def get_random_word(
         )
         return response
     raise HTTPException(status_code=404, detail="Язык не найден")
+
 
 #
 #
@@ -249,3 +245,11 @@ async def get_random_word(
 #     else:
 #         return False
 
+@router.get("/test")
+async def test(
+        word_for_translate_id: uuid.UUID,
+        user_word_id: uuid.UUID,
+        session: AsyncSession = Depends(get_async_session)
+):
+    word = await session.get(TranslationWord, user_word_id)
+    return word_for_translate_id == word.word_id
