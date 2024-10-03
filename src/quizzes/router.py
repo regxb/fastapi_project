@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.constants import part_of_speech_list
-from src.models import Word, TranslationWord
+from src.models import Word, TranslationWord, User, FavoriteWord
 from src.quizzes.query import get_random_word_for_translate, get_random_words
-from src.quizzes.schemas import RandomWordResponse
+from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord
 from src.schemas import WordInfo
 # from src.utils import get_random_words, check_favorite_words
 from src.database import get_async_session
@@ -63,30 +63,29 @@ async def get_random_word(
 #     return part_of_speech_list
 #
 #
-# @router.post("/favorite-word")
-# async def add_favorite_word(data: FavoriteWordBase, session: AsyncSession = Depends(get_async_session)):
-#     query = select(User).where(User.telegram_id == data.telegram_id)
-#     result = await session.scalar(query)
-#     if result:
-#         user_id = result.id
-#     else:
-#         raise HTTPException(status_code=404, detail="Пользователь не найден")
-#     word = await session.scalar(select(Word).where(Word.id == data.word_id))
-#     if word is None:
-#         raise HTTPException(status_code=404, detail="Слово не найдено")
-#     query = (select(FavoriteWord).where(and_(FavoriteWord.word_id == data.word_id, FavoriteWord.user_id == user_id)))
-#     result = await session.execute(query)
-#     user_favorite_words = result.scalars().all()
-#     if user_favorite_words:
-#         raise HTTPException(status_code=201, detail="Данное слово уже добавлено пользователем")
-#     new_favorite_word = FavoriteWord(
-#         user_id=user_id,
-#         word_id=data.word_id
-#     )
-#     session.add(new_favorite_word)
-#     await session.commit()
-#     return {"message": "Слово успешно добавлено"}
-#
+@router.post("/favorite-word")
+async def add_favorite_word(data: UserFavoriteWord, session: AsyncSession = Depends(get_async_session)):
+    user = await session.get(User, data.telegram_id)
+    word = await session.get(Word, data.word_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    if word is None:
+        raise HTTPException(status_code=404, detail="Слово не найдено")
+    query = (select(FavoriteWord).where(and_(FavoriteWord.word_id == data.word_id, FavoriteWord.user_id == user.id)))
+    user_favorite_words = await session.scalar(query)
+    if user_favorite_words:
+        raise HTTPException(status_code=201, detail="Данное слово уже добавлено пользователем")
+    new_favorite_word = FavoriteWord(
+        user_id=user.id,
+        word_id=word.id
+    )
+    session.add(new_favorite_word)
+    try:
+        await session.commit()
+        return {"message": "Слово успешно добавлено"}
+    except Exception as e:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="Ошибка при добавлении слова в избранное")
 #
 # @router.delete("/favorite-word")
 # async def delete_favorite_word(data: FavoriteWordBase, session: AsyncSession = Depends(get_async_session)):

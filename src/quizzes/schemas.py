@@ -26,9 +26,9 @@ from src.schemas import WordInfo
 #     other_words: List[WordInfo]
 #
 #
-# class FavoriteWordBase(BaseModel):
-#     telegram_id: int
-#     word_id: UUID4
+class UserFavoriteWord(BaseModel):
+    telegram_id: int
+    word_id: UUID4
 
 
 class RandomWordResponse(BaseModel):
