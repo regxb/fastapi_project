@@ -8,9 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.constants import part_of_speech_list
-from src.models import Word, FavoriteWord, User, Sentence, TranslationSentence, TranslationWord, WordV2, TranslationV2
-from src.quizzes.schemas import AnswerResponse, FavoriteWordBase, FavoriteAnswerResponse, SentenceAnswerResponse, \
-    SentenceInfo, RandomWordResponse
+from src.models import Word, TranslationWord
+from src.quizzes.schemas import RandomWordResponse
 from src.schemas import WordInfo
 from src.utils import get_random_words, check_favorite_words
 from src.database import get_async_session
@@ -48,14 +47,14 @@ async def get_random_word(
     language_from_id = languages.get(language_from)
     language_to_id = languages.get(language_to)
     if language_from_id and language_to_id:
-        query = (select(WordV2)
-                 .options(joinedload(WordV2.translation))
-                 .where(WordV2.language_id == language_from_id).order_by(func.random()).limit(1))
+        query = (select(Word)
+                 .options(joinedload(Word.translation))
+                 .where(Word.language_id == language_from_id).order_by(func.random()).limit(1))
         word_for_translate = await session.scalar(query)
 
-        query = (select(TranslationV2)
-                 .where(and_(TranslationV2.to_language_id == language_to_id,
-                             TranslationV2.word_id != word_for_translate.id))
+        query = (select(TranslationWord)
+                 .where(and_(TranslationWord.to_language_id == language_to_id,
+                             TranslationWord.word_id != word_for_translate.id))
                  .order_by(func.random()).limit(2))
         result = await session.execute(query)
         other_words = [w for w in result.scalars().all()]
