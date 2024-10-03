@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -31,3 +33,9 @@ async def get_random_user_favorite_word(session: AsyncSession, user_id: int):
              .limit(1))
     random_user_favorite_word = await session.scalar(query)
     return random_user_favorite_word
+
+
+async def check_word_in_favorite(session: AsyncSession, word_id: uuid.UUID, user_id: int):
+    query = select(FavoriteWord).where(and_(FavoriteWord.word_id == word_id, FavoriteWord.user_id == user_id))
+    result = await session.scalar(query)
+    return False if result is None else True

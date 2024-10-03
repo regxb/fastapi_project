@@ -34,3 +34,4 @@ class UserFavoriteWord(BaseModel):
 class RandomWordResponse(BaseModel):
     word_for_translate: WordInfo
     other_words: List[WordInfo]
+    in_favorite: bool

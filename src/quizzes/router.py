@@ -9,7 +9,8 @@ from sqlalchemy.orm import joinedload
 
 from src.constants import part_of_speech_list
 from src.models import Word, TranslationWord, User, FavoriteWord
-from src.quizzes.query import get_random_word_for_translate, get_random_words, get_random_user_favorite_word
+from src.quizzes.query import get_random_word_for_translate, get_random_words, get_random_user_favorite_word, \
+    check_word_in_favorite
 from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord
 from src.schemas import WordInfo
 # from src.utils import get_random_words, check_favorite_words
@@ -36,6 +37,7 @@ async def check_answer(
 
 @router.get("/random-word", response_model=RandomWordResponse)
 async def get_random_word(
+        telegram_id: int,
         language_from: str,
         language_to: str,
         session: AsyncSession = Depends(get_async_session)):
@@ -48,9 +50,13 @@ async def get_random_word(
         other_words.append(word_for_translate.translation)
         random.shuffle(other_words)
 
+        user = await get_user(session, telegram_id)
+        in_favorite = await check_word_in_favorite(session, word_for_translate.id, user.id)
+
         response = RandomWordResponse(
             word_for_translate=WordInfo(name=word_for_translate.name, id=word_for_translate.id),
-            other_words=[WordInfo(name=w.name, id=w.id) for w in other_words]
+            other_words=[WordInfo(name=w.name, id=w.id) for w in other_words],
+            in_favorite=in_favorite
         )
         return response
     raise HTTPException(status_code=404, detail="Язык не найден")
@@ -95,7 +101,7 @@ async def delete_favorite_word(data: UserFavoriteWord, session: AsyncSession = D
     return {"message": "Слово было удалено"}
 
 
-@router.get("/favorite-word")
+@router.get("/favorite-word", response_model=RandomWordResponse)
 async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
     user = await get_user(session, telegram_id)
     random_user_favorite_word = await get_random_user_favorite_word(session, user.id)
@@ -106,7 +112,8 @@ async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Dep
 
     response = RandomWordResponse(
         word_for_translate=WordInfo(name=random_user_favorite_word.word.name, id=random_user_favorite_word.word_id),
-        other_words=[WordInfo(name=w.name, id=w.id) for w in other_words]
+        other_words=[WordInfo(name=w.name, id=w.id) for w in other_words],
+        in_favorite=True
     )
     return response
 
