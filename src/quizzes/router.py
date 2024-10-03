@@ -9,9 +9,10 @@ from sqlalchemy.orm import joinedload
 
 from src.constants import part_of_speech_list
 from src.models import Word, TranslationWord
+from src.quizzes.query import get_random_word_for_translate, get_random_words
 from src.quizzes.schemas import RandomWordResponse
 from src.schemas import WordInfo
-from src.utils import get_random_words, check_favorite_words
+# from src.utils import get_random_words, check_favorite_words
 from src.database import get_async_session
 
 router = APIRouter(
@@ -22,8 +23,6 @@ router = APIRouter(
 languages = {"ru": 1, "en": 2}
 
 
-#
-#
 @router.get("/check-answer", response_model=bool)
 async def check_answer(
         word_for_translate_id: uuid.UUID,
@@ -39,22 +38,16 @@ async def get_random_word(
         language_from: str,
         language_to: str,
         session: AsyncSession = Depends(get_async_session)):
+
     language_from_id = languages.get(language_from)
     language_to_id = languages.get(language_to)
-    if language_from_id and language_to_id:
-        query = (select(Word)
-                 .options(joinedload(Word.translation))
-                 .where(Word.language_id == language_from_id).order_by(func.random()).limit(1))
-        word_for_translate = await session.scalar(query)
 
-        query = (select(TranslationWord)
-                 .where(and_(TranslationWord.to_language_id == language_to_id,
-                             TranslationWord.word_id != word_for_translate.id))
-                 .order_by(func.random()).limit(2))
-        result = await session.execute(query)
-        other_words = [w for w in result.scalars().all()]
+    if language_from_id and language_to_id:
+        word_for_translate = await get_random_word_for_translate(session, language_from_id)
+        other_words = await get_random_words(session, language_to_id, word_for_translate.id)
         other_words.append(word_for_translate.translation)
         random.shuffle(other_words)
+
         response = RandomWordResponse(
             word_for_translate=WordInfo(name=word_for_translate.name, id=word_for_translate.id),
             other_words=[WordInfo(name=w.name, id=w.id) for w in other_words]
@@ -244,12 +237,3 @@ async def get_random_word(
 #         return True
 #     else:
 #         return False
-
-@router.get("/test")
-async def test(
-        word_for_translate_id: uuid.UUID,
-        user_word_id: uuid.UUID,
-        session: AsyncSession = Depends(get_async_session)
-):
-    word = await session.get(TranslationWord, user_word_id)
-    return word_for_translate_id == word.word_id
