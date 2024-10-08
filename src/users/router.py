@@ -20,9 +20,12 @@ async def create_user(user_data: UserCreate, session: AsyncSession = Depends(get
     existing_user = await session.scalar(select(User).where(User.telegram_id == user_data.telegram_id))
     if existing_user:
         raise HTTPException(status_code=203, detail="Пользователь уже зарегистрирован")
-    new_user = User(telegram_id=user_data.telegram_id)
+    new_user = User(
+        telegram_id=user_data.telegram_id,
+        learning_language_from_id=user_data.learning_language_from_id,
+        learning_language_to_id=user_data.learning_language_to_id
+    )
     session.add(new_user)
-
     try:
         await session.commit()
         await session.refresh(new_user)
