@@ -1,20 +1,19 @@
-import uuid
 import random
-from typing import Optional, List, Dict
+import uuid
 
-from fastapi import Depends, HTTPException, APIRouter, Query
-from sqlalchemy import select, func, and_, or_, union, alias
+from fastapi import Depends, HTTPException, APIRouter
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 
-from src.constants import part_of_speech_list
+# from src.utils import get_random_words, check_favorite_words
+from src.database import get_async_session
 from src.models import Word, TranslationWord, User, FavoriteWord
+from src.quizzes.constants import AvailableLanguages, AvailablePartOfSpeech, AvailableWordLevel, languages, \
+    parts_of_speech, levels
 from src.quizzes.query import get_random_word_for_translate, get_random_words, get_random_user_favorite_word, \
     check_word_in_favorite
 from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord
 from src.schemas import WordInfo
-# from src.utils import get_random_words, check_favorite_words
-from src.database import get_async_session
 from src.users.query import get_user
 
 router = APIRouter(
@@ -22,7 +21,6 @@ router = APIRouter(
     tags=["quiz"]
 )
 
-languages = {"ru": 1, "en": 2}
 
 
 @router.get("/check-answer", response_model=bool)
@@ -147,16 +145,35 @@ async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Dep
 #     return response_data
 #
 #
-# @router.post("/add-word")
-# async def add_word(
-#         word_ru: str,
-#         word_eng: str,
-#         part_of_speech: str,
-#         rating: str,
-#         session: AsyncSession = Depends(get_async_session)):
-#     new_translation_word = TranslationWord(name=word_ru)
-#     session.add(new_translation_word)
-#     await session.flush()
+@router.post("/add-word")
+async def add_word(
+        translation_from_language: AvailableLanguages,
+        word_to_translate: str,
+        translation_to_language: AvailableLanguages,
+        translation_word: str,
+        part_of_speech: AvailablePartOfSpeech,
+        level: AvailableWordLevel,
+        session: AsyncSession = Depends(get_async_session)):
+
+    new_word = Word(
+        name=word_to_translate,
+        language_id=languages.get(translation_from_language),
+        part_of_speech=part_of_speech.name,
+        level=levels.get(level.name)
+    )
+    session.add(new_word)
+    await session.flush()
+
+    new_translation_word = TranslationWord(
+        name=translation_word,
+        to_language_id=languages.get(translation_to_language),
+        from_language_id=languages.get(translation_from_language),
+        word_id=new_word.id
+    )
+    session.add(new_translation_word)
+    await session.commit()
+
+
 #
 #     new_word = Word(name=word_eng, part_of_speech=part_of_speech, translation_id=new_translation_word.id, rating=rating)
 #     session.add(new_word)
@@ -228,4 +245,3 @@ async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Dep
 #         return True
 #     else:
 #         return False
-
