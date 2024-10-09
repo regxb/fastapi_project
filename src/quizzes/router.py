@@ -2,8 +2,9 @@ import random
 import uuid
 
 from fastapi import Depends, HTTPException, APIRouter
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 # from src.utils import get_random_words, check_favorite_words
 from src.database import get_async_session
@@ -11,16 +12,15 @@ from src.models import Word, TranslationWord, User, FavoriteWord, TranslationSen
 from src.quizzes.constants import AvailableLanguages, AvailablePartOfSpeech, AvailableWordLevel, languages, \
     parts_of_speech, levels
 from src.quizzes.query import get_random_word_for_translate, get_random_words, get_random_user_favorite_word, \
-    check_word_in_favorite
-from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord
-from src.schemas import WordInfo
+    check_word_in_favorite, get_random_sentence_for_translate, get_random_words_for_sentence
+from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord, RandomSentenceResponse
+from src.schemas import WordInfo, SentenceInfo
 from src.users.query import get_user
 
 router = APIRouter(
     prefix="/quiz",
     tags=["quiz"]
 )
-
 
 
 @router.get("/check-answer", response_model=bool)
@@ -150,7 +150,6 @@ async def add_word(
         part_of_speech: AvailablePartOfSpeech,
         level: AvailableWordLevel,
         session: AsyncSession = Depends(get_async_session)):
-
     new_word = Word(
         name=word_to_translate,
         language_id=languages.get(translation_from_language),
@@ -194,42 +193,28 @@ async def add_sentence(
     await session.commit()
 
 
-# @router.get("/get-random-sentence", response_model=SentenceAnswerResponse)
-# async def get_random_sentence(language: str, session: AsyncSession = Depends(get_async_session)):
-#     query = select(Sentence).options(joinedload(Sentence.translation)).order_by(func.random()).limit(1)
-#     sentence = await session.scalar(query)
-#     if language == "ru":
-#         sentence_words = sentence.translation.name.split()
-#         query = await session.execute(select(TranslationWord)
-#                                       .where(TranslationWord.name.notin_(sentence_words))
-#                                       .order_by(func.random()).limit(random.randint(1, 3)))
-#         result = query.scalars().all()
-#         other_words = [w.name for w in result]
-#         [other_words.append(w) for w in sentence_words]
-#         random.shuffle(other_words)
-#         response_data = SentenceAnswerResponse(
-#             sentence_for_translate=SentenceInfo(id=sentence.id, name=sentence.name),
-#             other_words=other_words,
-#         )
-#         return response_data
-#
-#     elif language == "en":
-#         sentence_words = sentence.translation.name.split()
-#         query = await session.execute(select(Word)
-#                                       .options(joinedload(Word.translation))
-#                                       .where(Word.name.notin_(sentence_words))
-#                                       .order_by(func.random()).limit(random.randint(1, 3)))
-#         result = query.scalars().all()
-#         other_words = [w.translation.name for w in result]
-#         [other_words.append(w) for w in sentence_words]
-#         random.shuffle(other_words)
-#         response_data = SentenceAnswerResponse(
-#             sentence_for_translate=SentenceInfo(id=sentence.id, name=sentence.name),
-#             other_words=other_words,
-#         )
-#         return response_data
-#
-#
+@router.get("/get-random-sentence", response_model=RandomSentenceResponse)
+async def get_random_sentence(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
+    user = await get_user(session, telegram_id)
+    language_from_id = user.learning_language_from_id
+    language_to_id = user.learning_language_to_id
+
+    random_sentence_for_translate = await get_random_sentence_for_translate(session, language_to_id, language_from_id)
+    words_for_sentence = random_sentence_for_translate.name.replace(",", "").split()
+
+    random_words_for_sentence = await get_random_words_for_sentence(session, language_to_id, words_for_sentence)
+    [words_for_sentence.append(w) for w in random_words_for_sentence]
+    random.shuffle(words_for_sentence)
+
+    response = RandomSentenceResponse(
+        sentence_for_translate=SentenceInfo(
+            id=random_sentence_for_translate.id,
+            name=random_sentence_for_translate.translation.name
+        ),
+        words_for_sentence=words_for_sentence
+    )
+    return response
+
 # @router.get("/check-sentence-answer")
 # async def check_sentence_answer(
 #         sentence_id: uuid.UUID,
