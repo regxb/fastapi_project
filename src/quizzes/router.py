@@ -36,28 +36,24 @@ async def check_answer(
 @router.get("/random-word", response_model=RandomWordResponse)
 async def get_random_word(
         telegram_id: int,
-        language_from: str,
-        language_to: str,
         session: AsyncSession = Depends(get_async_session)):
-    language_from_id = languages.get(language_from)
-    language_to_id = languages.get(language_to)
+    user = await get_user(session, telegram_id)
+    language_from_id = user.learning_language_from_id
+    language_to_id = user.learning_language_to_id
 
-    if language_from_id and language_to_id:
-        word_for_translate = await get_random_word_for_translate(session, language_from_id)
-        other_words = await get_random_words(session, language_to_id, word_for_translate.id)
-        other_words.append(word_for_translate.translation)
-        random.shuffle(other_words)
+    word_for_translate = await get_random_word_for_translate(session, language_from_id)
+    other_words = await get_random_words(session, language_to_id, word_for_translate.id)
+    other_words.append(word_for_translate.translation)
+    random.shuffle(other_words)
 
-        user = await get_user(session, telegram_id)
-        in_favorite = await check_word_in_favorite(session, word_for_translate.id, user.id)
+    in_favorite = await check_word_in_favorite(session, word_for_translate.id, user.id)
 
-        response = RandomWordResponse(
-            word_for_translate=WordInfo(name=word_for_translate.name, id=word_for_translate.id),
-            other_words=[WordInfo(name=w.name, id=w.id) for w in other_words],
-            in_favorite=in_favorite
-        )
-        return response
-    raise HTTPException(status_code=404, detail="Язык не найден")
+    response = RandomWordResponse(
+        word_for_translate=WordInfo(name=word_for_translate.name, id=word_for_translate.id),
+        other_words=[WordInfo(name=w.name, id=w.id) for w in other_words],
+        in_favorite=in_favorite
+    )
+    return response
 
 
 @router.post("/favorite-word")
@@ -174,12 +170,6 @@ async def add_word(
     await session.commit()
 
 
-#
-#     new_word = Word(name=word_eng, part_of_speech=part_of_speech, translation_id=new_translation_word.id, rating=rating)
-#     session.add(new_word)
-#     await session.commit()
-#
-#
 # @router.post("/add-sentence")
 # async def add_sentence(
 #         sentence_en: str,
