@@ -6,7 +6,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from src.models import Word, TranslationWord, FavoriteWord, Sentence, TranslationSentence
+from src.models import Word, TranslationWord, FavoriteWord, Sentence, TranslationSentence, Language
 
 
 async def get_random_word_for_translate(session: AsyncSession, language_from_id: int):
@@ -65,3 +65,8 @@ async def get_random_words_for_sentence(session: AsyncSession, language_to_id: i
     result = await session.execute(query)
     random_words_for_sentence = result.scalars().all()
     return random_words_for_sentence
+
+
+async def get_available_languages(session: AsyncSession):
+    available_languages = await session.execute(select(Language))
+    return [{"id": w.id, "name": w.language} for w in available_languages.scalars().all()]
