@@ -9,7 +9,7 @@ from sqlalchemy.orm import joinedload
 
 # from src.utils import get_random_words, check_favorite_words
 from src.database import get_async_session
-from src.models import Word, TranslationWord, User, FavoriteWord, TranslationSentence, Sentence
+from src.models import Word, TranslationWord, User, FavoriteWord, TranslationSentence, Sentence, Language
 from src.quizzes.constants import AvailableLanguages, AvailablePartOfSpeech, AvailableWordLevel, languages, \
     parts_of_speech, levels
 from src.quizzes.query import get_random_word_for_translate, get_random_words, get_random_user_favorite_word, \
@@ -25,8 +25,9 @@ router = APIRouter(
 
 
 @router.get("/check-available-language")
-async def check_available_language():
-    return languages
+async def check_available_language(session: AsyncSession = Depends(get_async_session)):
+    available_languages = await session.execute(select(Language))
+    return [{"id": w.id, "name": w.language} for w in available_languages.scalars().all()]
 
 
 @router.get("/check-answer", response_model=bool)
