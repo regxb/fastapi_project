@@ -24,6 +24,11 @@ router = APIRouter(
 )
 
 
+@router.get("/check-available-language")
+async def check_available_language():
+    return languages
+
+
 @router.get("/check-answer", response_model=bool)
 async def check_answer(
         word_for_translate_id: uuid.UUID,
