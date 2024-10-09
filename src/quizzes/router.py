@@ -1,4 +1,5 @@
 import random
+import string
 import uuid
 from typing import List
 
@@ -10,10 +11,10 @@ from sqlalchemy.orm import joinedload
 # from src.utils import get_random_words, check_favorite_words
 from src.database import get_async_session
 from src.models import Word, TranslationWord, User, FavoriteWord, TranslationSentence, Sentence, Language
-from src.quizzes.constants import AvailableLanguages, AvailablePartOfSpeech, AvailableWordLevel, languages, \
-    parts_of_speech, levels
+from src.quizzes.constants import AvailableLanguages, AvailablePartOfSpeech, AvailableWordLevel, \
+    parts_of_speech, levels, languages
 from src.quizzes.query import get_random_word_for_translate, get_random_words, get_random_user_favorite_word, \
-    check_word_in_favorite, get_random_sentence_for_translate, get_random_words_for_sentence
+    check_word_in_favorite, get_random_sentence_for_translate, get_random_words_for_sentence, get_available_languages
 from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord, RandomSentenceResponse
 from src.schemas import WordInfo, SentenceInfo
 from src.users.query import get_user
@@ -26,8 +27,8 @@ router = APIRouter(
 
 @router.get("/check-available-language")
 async def check_available_language(session: AsyncSession = Depends(get_async_session)):
-    available_languages = await session.execute(select(Language))
-    return [{"id": w.id, "name": w.language} for w in available_languages.scalars().all()]
+    available_languages = await get_available_languages(session)
+    return available_languages
 
 
 @router.get("/check-answer", response_model=bool)
@@ -207,7 +208,7 @@ async def get_random_sentence(telegram_id: int, session: AsyncSession = Depends(
     language_to_id = user.learning_language_to_id
 
     random_sentence_for_translate = await get_random_sentence_for_translate(session, language_to_id, language_from_id)
-    words_for_sentence = random_sentence_for_translate.name.replace(",", "").split()
+    words_for_sentence = random_sentence_for_translate.name.translate(str.maketrans('', '', string.punctuation)).split()
 
     random_words_for_sentence = await get_random_words_for_sentence(session, language_to_id, words_for_sentence)
     [words_for_sentence.append(w) for w in random_words_for_sentence]
@@ -229,7 +230,7 @@ async def check_sentence_answer(
         user_words: List[str] = Query(...),
         session: AsyncSession = Depends(get_async_session)):
     sentence = await session.scalar(select(Sentence).where(Sentence.id == sentence_id))
-    if sentence.name.replace(",", "") == " ".join(user_words):
+    if sentence.name.translate(str.maketrans('', '', string.punctuation)) == " ".join(user_words):
         return True
     else:
         return False
