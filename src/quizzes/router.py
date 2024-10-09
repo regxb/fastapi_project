@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # from src.utils import get_random_words, check_favorite_words
 from src.database import get_async_session
-from src.models import Word, TranslationWord, User, FavoriteWord
+from src.models import Word, TranslationWord, User, FavoriteWord, TranslationSentence, Sentence
 from src.quizzes.constants import AvailableLanguages, AvailablePartOfSpeech, AvailableWordLevel, languages, \
     parts_of_speech, levels
 from src.quizzes.query import get_random_word_for_translate, get_random_words, get_random_user_favorite_word, \
@@ -170,25 +170,30 @@ async def add_word(
     await session.commit()
 
 
-# @router.post("/add-sentence")
-# async def add_sentence(
-#         sentence_en: str,
-#         sentence_ru: str,
-#         session: AsyncSession = Depends(get_async_session)):
-#     new_translation_sentence = TranslationSentence(
-#         name=sentence_ru,
-#     )
-#     session.add(new_translation_sentence)
-#     await session.flush()
-#
-#     new_sentence = Sentence(
-#         name=sentence_en,
-#         translation_id=new_translation_sentence.id
-#     )
-#     session.add(new_sentence)
-#     await session.commit()
-#
-#
+@router.post("/add-sentence")
+async def add_sentence(
+        translation_from_language: AvailableLanguages,
+        sentence_to_translate: str,
+        translation_to_language: AvailableLanguages,
+        translation_sentence: str,
+        session: AsyncSession = Depends(get_async_session)):
+    new_sentence = Sentence(
+        name=sentence_to_translate,
+        language_id=languages.get(translation_from_language)
+    )
+    session.add(new_sentence)
+    await session.flush()
+
+    new_translation_sentence = TranslationSentence(
+        name=translation_sentence,
+        sentence_id=new_sentence.id,
+        from_language_id=languages.get(translation_from_language),
+        to_language_id=languages.get(translation_to_language),
+    )
+    session.add(new_translation_sentence)
+    await session.commit()
+
+
 # @router.get("/get-random-sentence", response_model=SentenceAnswerResponse)
 # async def get_random_sentence(language: str, session: AsyncSession = Depends(get_async_session)):
 #     query = select(Sentence).options(joinedload(Sentence.translation)).order_by(func.random()).limit(1)
