@@ -4,6 +4,7 @@ from enum import Enum
 class AvailableLanguages(str, Enum):
     en = "en"
     ru = "ru"
+    fr = "fr"
 
 
 class AvailableWordLevel(str, Enum):
@@ -28,6 +29,6 @@ class AvailablePartOfSpeech(str, Enum):
     other = "Другое"
 
 
-languages = {"ru": 1, "en": 2}
+languages = {"ru": 1, "en": 2, "fr": 3}
 parts_of_speech = {part.name: part.value for part in AvailablePartOfSpeech}
 levels = {level.name: level.value for level in AvailableWordLevel}
