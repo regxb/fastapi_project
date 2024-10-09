@@ -1,10 +1,12 @@
+import random
 import uuid
+from typing import Optional
 
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from src.models import Word, TranslationWord, FavoriteWord
+from src.models import Word, TranslationWord, FavoriteWord, Sentence, TranslationSentence
 
 
 async def get_random_word_for_translate(session: AsyncSession, language_from_id: int):
@@ -39,3 +41,27 @@ async def check_word_in_favorite(session: AsyncSession, word_id: uuid.UUID, user
     query = select(FavoriteWord).where(and_(FavoriteWord.word_id == word_id, FavoriteWord.user_id == user_id))
     result = await session.scalar(query)
     return False if result is None else True
+
+
+async def get_random_sentence_for_translate(session: AsyncSession, language_from_id, language_to_id):
+    query = (select(Sentence)
+             .join(Sentence.translation)
+             .options(joinedload(Sentence.translation))
+             .where(and_(Sentence.language_id == language_from_id,
+                         TranslationSentence.to_language_id == language_to_id))
+             .order_by(func.random())
+             .limit(1))
+    random_sentence_for_translate = await session.scalar(query)
+    return random_sentence_for_translate
+
+
+async def get_random_words_for_sentence(session: AsyncSession, language_to_id: int, words_for_sentence: Optional[list]):
+    query = (select(TranslationWord.name)
+             .where(and_(TranslationWord.to_language_id == language_to_id),
+                    TranslationWord.name.notin_(words_for_sentence))
+             .order_by(func.random())
+             .limit(random.randint(2, 4))
+             )
+    result = await session.execute(query)
+    random_words_for_sentence = result.scalars().all()
+    return random_words_for_sentence
