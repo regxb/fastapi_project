@@ -1,7 +1,8 @@
 import random
 import uuid
+from typing import List
 
-from fastapi import Depends, HTTPException, APIRouter
+from fastapi import Depends, HTTPException, APIRouter, Query
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -215,13 +216,14 @@ async def get_random_sentence(telegram_id: int, session: AsyncSession = Depends(
     )
     return response
 
-# @router.get("/check-sentence-answer")
-# async def check_sentence_answer(
-#         sentence_id: uuid.UUID,
-#         user_words: List[str] = Query(...),
-#         session: AsyncSession = Depends(get_async_session)):
-#     sentence = await session.scalar(select(Sentence).where(Sentence.id == sentence_id))
-#     if sentence.name.lower().replace(",", "") == " ".join(user_words).lower():
-#         return True
-#     else:
-#         return False
+
+@router.get("/check-sentence-answer")
+async def check_sentence_answer(
+        sentence_id: uuid.UUID,
+        user_words: List[str] = Query(...),
+        session: AsyncSession = Depends(get_async_session)):
+    sentence = await session.scalar(select(Sentence).where(Sentence.id == sentence_id))
+    if sentence.name.replace(",", "") == " ".join(user_words):
+        return True
+    else:
+        return False
