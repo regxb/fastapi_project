@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import ForeignKey, func, DateTime, text
+from sqlalchemy import ForeignKey, func, DateTime, text, String
 import uuid
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -58,6 +58,7 @@ class Sentence(Base):
         default=uuid.uuid4
     )
     name: Mapped[str]
+    level: Mapped[str] = mapped_column(nullable=True)
     language_id: Mapped[int] = mapped_column(ForeignKey("languages.id"))
 
     translation: Mapped["TranslationSentence"] = relationship(back_populates="sentence")
@@ -131,4 +132,11 @@ class FavoriteWord(Base):
     word: Mapped["Word"] = relationship(back_populates="favorite_word")
 
 
+class Task(Base):
+    __tablename__ = 'tasks'
 
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_type: Mapped[str]
+    level: Mapped[str]
+    language_to_id: Mapped[int] = mapped_column(ForeignKey('languages.id'))
+    language_from_id: Mapped[int] = mapped_column(ForeignKey('languages.id'))
