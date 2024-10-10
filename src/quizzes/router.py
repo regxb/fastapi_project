@@ -14,7 +14,8 @@ from src.models import Word, TranslationWord, User, FavoriteWord, TranslationSen
 from src.quizzes.constants import AvailableLanguages, AvailablePartOfSpeech, AvailableWordLevel, \
     parts_of_speech, levels, languages
 from src.quizzes.query import get_random_word_for_translate, get_random_words, get_random_user_favorite_word, \
-    check_word_in_favorite, get_random_sentence_for_translate, get_random_words_for_sentence, get_available_languages
+    check_word_in_favorite, get_random_sentence_for_translate, get_random_words_for_sentence, get_available_languages, \
+    get_random_words_for_match
 from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord, RandomSentenceResponse
 from src.schemas import WordInfo, SentenceInfo
 from src.users.query import get_user
@@ -120,8 +121,6 @@ async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Dep
     return response
 
 
-#
-#
 # @router.get("/part_of_speech", response_model=AnswerResponse)
 # async def get_word_from_part_of_speech(
 #         part_of_speech: str,
@@ -147,8 +146,8 @@ async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Dep
 #     )
 #
 #     return response_data
-#
-#
+
+
 @router.post("/add-word")
 async def add_word(
         translation_from_language: AvailableLanguages,
@@ -234,3 +233,17 @@ async def check_sentence_answer(
         return True
     else:
         return False
+
+
+@router.get("/match-words")
+async def get_match_words(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
+    user = await get_user(session, telegram_id)
+    language_from_id = user.learning_language_from_id
+    language_to_id = user.learning_language_to_id
+    words = await get_random_words_for_match(session, language_from_id)
+    words_list = [{"id": w.id, "name": w.name} for w in words]
+    random.shuffle(words_list)
+    translation_words_list = [{"id": w.translation.id, "name": w.translation.name} for w in words]
+    random.shuffle(translation_words_list)
+    response = {"words": words_list, "translation_words": translation_words_list}
+    return response

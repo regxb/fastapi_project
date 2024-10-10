@@ -70,3 +70,14 @@ async def get_random_words_for_sentence(session: AsyncSession, language_to_id: i
 async def get_available_languages(session: AsyncSession):
     available_languages = await session.execute(select(Language))
     return [{"id": w.id, "name": w.language} for w in available_languages.scalars().all()]
+
+
+async def get_random_words_for_match(session: AsyncSession, language_from_id):
+    query = ((select(Word)
+              .options(joinedload(Word.translation))
+              .where(Word.language_id == language_from_id))
+             .order_by(func.random())
+             .limit(8))
+    result = await session.execute(query)
+    words = result.scalars().all()
+    return words
