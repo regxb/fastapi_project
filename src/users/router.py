@@ -54,12 +54,10 @@ async def get_user_info(telegram_id: int, session: AsyncSession = Depends(get_as
 
 @router.patch("/change-user-language")
 async def change_user_language(
-        telegram_id: int,
-        learning_language_from_id: int,
-        learning_language_to_id: int,
+        user_data: UserCreate,
         session: AsyncSession = Depends(get_async_session)
         ):
-    user = await get_user(session, telegram_id)
-    user.learning_language_to_id = learning_language_to_id
-    user.learning_language_from_id = learning_language_from_id
+    user = await get_user(session, user_data.telegram_id)
+    user.learning_language_to_id = user_data.learning_language_to_id
+    user.learning_language_from_id = user_data.learning_language_from_id
     await session.commit()
