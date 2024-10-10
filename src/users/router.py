@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import User
+from src.users.query import get_user
 from src.users.schemas import UserCreate, UserInfo
 from src.database import get_async_session
 
@@ -49,3 +50,16 @@ async def get_user_info(telegram_id: int, session: AsyncSession = Depends(get_as
     if user_data is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     return user_data
+
+
+@router.patch("/change-user-language")
+async def change_user_language(
+        telegram_id: int,
+        learning_language_from_id: int,
+        learning_language_to_id: int,
+        session: AsyncSession = Depends(get_async_session)
+        ):
+    user = await get_user(session, telegram_id)
+    user.learning_language_to_id = learning_language_to_id
+    user.learning_language_from_id = learning_language_from_id
+    await session.commit()
