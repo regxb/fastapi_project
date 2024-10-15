@@ -1,16 +1,19 @@
 import random
+import string
 import uuid
+from typing import List
 
-from fastapi import Depends, HTTPException, APIRouter
+from fastapi import Depends, HTTPException, APIRouter, Query
 from sqlalchemy import and_
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from src.exams.schemas import ExamData, ExamAnswerResponse, ExamStatistic
-from src.exams.utils import update_user_rating
-from src.models import Word, User, Exam, ExamQuestion
+from src.exams.utils import update_user_progress
+from src.models import Word, User, TranslationWord, Sentence, Exam
+from src.quizzes.router import get_match_words, get_random_word, get_random_sentence
 from src.schemas import WordInfo
+from src.users.query import get_user
 from src.utils import get_random_words, check_favorite_words
 from src.database import get_async_session
 
@@ -18,8 +21,58 @@ router = APIRouter(
     prefix="/exam",
     tags=["exam"]
 )
-#
-#
+
+exercises = [get_match_words, get_random_word, get_random_sentence]
+
+
+@router.get("/exam")
+async def start_exam(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
+    user = await get_user(session, telegram_id)
+    query = select(Exam).where(and_(Exam.user_id == user.id, Exam.status == "started"))
+    user_exam = await session.scalar(query)
+    if not user_exam:
+        new_user_exam = Exam(user_id=user.id)
+        session.add(new_user_exam)
+        await session.commit()
+    random_exercise = random.sample(exercises, k=1)
+    exercise = await random_exercise[0](telegram_id, session)
+    response = dict(exercise)
+    response["user_progress"] = user_exam.progress
+    response["total_progress"] = user_exam.total_exercises
+    return response
+
+
+@router.get("/check-exam-sentence-answer")
+async def check_exam_sentence_answer(
+        sentence_id: uuid.UUID,
+        telegram_id: int,
+        user_words: List[str] = Query(...),
+        session: AsyncSession = Depends(get_async_session)):
+    user = await get_user(session, telegram_id)
+    query = select(Exam).where(and_(Exam.user_id == user.id, Exam.status == "started"))
+    user_exam = await session.scalar(query)
+    sentence = await session.scalar(select(Sentence).where(Sentence.id == sentence_id))
+    result = sentence.name.translate(str.maketrans('', '', string.punctuation)).lower() == " ".join(user_words).lower()
+    response = await update_user_progress(result, user_exam, user, session)
+    return response
+
+
+@router.get("/check-exam-answer", response_model=bool)
+async def check_exam_answer(
+        word_for_translate_id: uuid.UUID,
+        user_word_id: uuid.UUID,
+        telegram_id: int,
+        session: AsyncSession = Depends(get_async_session)
+):
+    user = await get_user(session, telegram_id)
+    query = select(Exam).where(and_(Exam.user_id == user.id, Exam.status == "started"))
+    user_exam = await session.scalar(query)
+    word = await session.get(TranslationWord, user_word_id)
+    result = word_for_translate_id == word.word_id
+    response = await update_user_progress(result, user_exam, user, session)
+    return response
+
+
 # @router.post("/start", response_model=ExamAnswerResponse)
 # async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(get_async_session)):
 #     query = (select(Exam)
