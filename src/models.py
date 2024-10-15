@@ -21,32 +21,33 @@ class User(Base):
     rating: Mapped[str] = mapped_column(default="A1")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
-    exam: Mapped["Exam"] = relationship(back_populates="user")
+    # exam: Mapped["Exam"] = relationship(back_populates="user")
     favorite_word: Mapped["FavoriteWord"] = relationship(back_populates="user")
 
 
-class Exam(Base):
-    __tablename__ = "exam"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    status: Mapped[str] = mapped_column(default="going")
-
-    user: Mapped["User"] = relationship(back_populates="exam")
-    exam_question: Mapped["ExamQuestion"] = relationship(back_populates="exam")
-
-
-class ExamQuestion(Base):
-    __tablename__ = "exam_question"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    exam_id: Mapped[int] = mapped_column(ForeignKey('exam.id'))
-    word_id: Mapped[str] = mapped_column(ForeignKey('words.id'))
-    status: Mapped[str] = mapped_column(default="awaiting response")
-
-    exam: Mapped["Exam"] = relationship(back_populates="exam_question")
-    word: Mapped["Word"] = relationship(back_populates="exam_question")
+# class Exam(Base):
+#     __tablename__ = "exam"
+#
+#     id: Mapped[int] = mapped_column(primary_key=True)
+#     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+#     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+#     updated_at: Mapped[datetime] = mapped_column(default=func.now(), onupdate=func.now())
+#     status: Mapped[str] = mapped_column(default="going")
+#
+#     user: Mapped["User"] = relationship(back_populates="exam")
+#     exam_question: Mapped["ExamQuestion"] = relationship(back_populates="exam")
+#
+#
+# class ExamQuestion(Base):
+#     __tablename__ = "exam_question"
+#
+#     id: Mapped[int] = mapped_column(primary_key=True)
+#     exam_id: Mapped[int] = mapped_column(ForeignKey('exam.id'))
+#     word_id: Mapped[str] = mapped_column(ForeignKey('words.id'))
+#     status: Mapped[str] = mapped_column(default="awaiting response")
+#
+#     exam: Mapped["Exam"] = relationship(back_populates="exam_question")
+#     word: Mapped["Word"] = relationship(back_populates="exam_question")
 
 
 class Sentence(Base):
@@ -95,7 +96,7 @@ class Word(Base):
 
     translation: Mapped["TranslationWord"] = relationship(back_populates="word")
     favorite_word: Mapped["FavoriteWord"] = relationship(back_populates="word")
-    exam_question: Mapped["ExamQuestion"] = relationship(back_populates="word")
+    # exam_question: Mapped["ExamQuestion"] = relationship(back_populates="word")
 
 
 class TranslationWord(Base):
@@ -132,11 +133,15 @@ class FavoriteWord(Base):
     word: Mapped["Word"] = relationship(back_populates="favorite_word")
 
 
-class Task(Base):
-    __tablename__ = 'tasks'
+class Exam(Base):
+    __tablename__ = 'exams'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    task_type: Mapped[str]
-    level: Mapped[str]
-    language_to_id: Mapped[int] = mapped_column(ForeignKey('languages.id'))
-    language_from_id: Mapped[int] = mapped_column(ForeignKey('languages.id'))
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    attempts: Mapped[int] = mapped_column(default=3)
+    total_exercises: Mapped[int] = mapped_column(default=50)
+    progress: Mapped[int] = mapped_column(default=0)
+    status: Mapped[str] = mapped_column(default="started")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(default=func.now(), onupdate=func.now())
+
