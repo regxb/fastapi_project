@@ -121,33 +121,6 @@ async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Dep
     return response
 
 
-# @router.get("/part_of_speech", response_model=AnswerResponse)
-# async def get_word_from_part_of_speech(
-#         part_of_speech: str,
-#         telegram_id: int,
-#         session: AsyncSession = Depends(get_async_session)):
-#     if part_of_speech not in part_of_speech_list:
-#         raise HTTPException(status_code=404, detail="Часть речи не найдена")
-#
-#     query = (select(Word)
-#              .options(joinedload(Word.translation))
-#              .where(Word.part_of_speech == part_of_speech).order_by(func.random())
-#              .limit(3))
-#     result = await session.execute(query)
-#     words = result.scalars().all()
-#     word_for_translate = words[0]
-#     user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
-#     in_favorites = await check_favorite_words(user_id=user.id, word_id=word_for_translate.id, session=session)
-#
-#     response_data = AnswerResponse(
-#         word_for_translate=WordInfo(id=word_for_translate.id, name=word_for_translate.translation.name),
-#         other_words=[WordInfo(id=word.translation_id, name=word.name) for word in words],
-#         in_favorites=in_favorites
-#     )
-#
-#     return response_data
-
-
 @router.post("/add-word")
 async def add_word(
         translation_from_language: AvailableLanguages,
@@ -229,17 +202,13 @@ async def check_sentence_answer(
         user_words: List[str] = Query(...),
         session: AsyncSession = Depends(get_async_session)):
     sentence = await session.scalar(select(Sentence).where(Sentence.id == sentence_id))
-    if sentence.name.translate(str.maketrans('', '', string.punctuation)) == " ".join(user_words):
-        return True
-    else:
-        return False
+    return sentence.name.translate(str.maketrans('', '', string.punctuation)).lower() == " ".join(user_words).lower()
 
 
 @router.get("/match-words")
 async def get_match_words(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
     user = await get_user(session, telegram_id)
     language_from_id = user.learning_language_from_id
-    language_to_id = user.learning_language_to_id
     words = await get_random_words_for_match(session, language_from_id)
     words_list = [{"id": w.id, "name": w.name} for w in words]
     random.shuffle(words_list)
