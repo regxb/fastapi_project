@@ -220,4 +220,4 @@ async def get_match_words(telegram_id: int, session: AsyncSession = Depends(get_
 
 @router.get("/test")
 async def get_test():
-    return {"message": "test"}
+    return {"message": "test1"}
