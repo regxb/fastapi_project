@@ -199,7 +199,7 @@ async def get_random_sentence(telegram_id: int, session: AsyncSession = Depends(
 @router.get("/check-sentence-answer")
 async def check_sentence_answer(
         sentence_id: uuid.UUID,
-        user_words: List[str] = Query(...),
+        user_words: list[str] = Query(...),
         session: AsyncSession = Depends(get_async_session)):
     sentence = await session.scalar(select(Sentence).where(Sentence.id == sentence_id))
     return sentence.name.translate(str.maketrans('', '', string.punctuation)).lower() == " ".join(user_words).lower()
@@ -216,3 +216,8 @@ async def get_match_words(telegram_id: int, session: AsyncSession = Depends(get_
     random.shuffle(translation_words_list)
     response = {"words": words_list, "translation_words": translation_words_list}
     return response
+
+
+@router.get("/test")
+async def get_test():
+    return {"message": "test1"}
