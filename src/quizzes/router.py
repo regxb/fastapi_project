@@ -17,6 +17,7 @@ from src.quizzes.query import get_random_word_for_translate, get_random_words, g
     check_word_in_favorite, get_random_sentence_for_translate, get_random_words_for_sentence, get_available_languages, \
     get_random_words_for_match
 from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord, RandomSentenceResponse
+from src.quizzes.service import QuizService
 from src.schemas import WordInfo, SentenceInfo
 from src.users.query import get_user
 
@@ -24,6 +25,7 @@ router = APIRouter(
     prefix="/quiz",
     tags=["quiz"]
 )
+
 
 
 @router.get("/check-available-language")
@@ -46,23 +48,27 @@ async def check_answer(
 async def get_random_word(
         telegram_id: int,
         session: AsyncSession = Depends(get_async_session)):
-    user = await get_user(session, telegram_id)
-    language_from_id = user.learning_language_from_id
-    language_to_id = user.learning_language_to_id
+    qwew = QuizService()
+    return await qwew.get_random_word(telegram_id)
+    # user = await get_user(session, telegram_id)
+    # language_from_id = user.learning_language_from_id
+    # language_to_id = user.learning_language_to_id
+    #
+    # word_for_translate = await get_random_word_for_translate(session, language_from_id)
+    # other_words = await get_random_words(session, language_to_id, word_for_translate.id)
+    # other_words.append(word_for_translate.translation)
+    # random.shuffle(other_words)
+    #
+    # in_favorite = await check_word_in_favorite(session, word_for_translate.id, user.id)
+    #
+    # response = RandomWordResponse(
+    #     word_for_translate=WordInfo(name=word_for_translate.name, id=word_for_translate.id),
+    #     other_words=[WordInfo(name=w.name, id=w.id) for w in other_words],
+    #     in_favorite=in_favorite
+    # )
+    # return response
 
-    word_for_translate = await get_random_word_for_translate(session, language_from_id)
-    other_words = await get_random_words(session, language_to_id, word_for_translate.id)
-    other_words.append(word_for_translate.translation)
-    random.shuffle(other_words)
 
-    in_favorite = await check_word_in_favorite(session, word_for_translate.id, user.id)
-
-    response = RandomWordResponse(
-        word_for_translate=WordInfo(name=word_for_translate.name, id=word_for_translate.id),
-        other_words=[WordInfo(name=w.name, id=w.id) for w in other_words],
-        in_favorite=in_favorite
-    )
-    return response
 
 
 @router.post("/favorite-word")
@@ -220,4 +226,4 @@ async def get_match_words(telegram_id: int, session: AsyncSession = Depends(get_
 
 @router.get("/test")
 async def get_test():
-    return {"message": "test1"}
+    return {"message": "test"}
