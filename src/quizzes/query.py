@@ -6,7 +6,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from src.models import Word, TranslationWord, FavoriteWord, Sentence, TranslationSentence, Language
+from src.models import Word, TranslationWord, FavoriteWord, Sentence, TranslationSentence, Language, User
 
 
 async def get_random_word_for_translate(session: AsyncSession, language_from_id: int):
@@ -29,18 +29,31 @@ async def get_random_words(session: AsyncSession, language_to_id: int, word_for_
 
 async def get_random_user_favorite_word(session: AsyncSession, user_id: int):
     query = ((select(FavoriteWord).join(FavoriteWord.word).join(Word.translation)
-             .options(joinedload(FavoriteWord.word).options(joinedload(Word.translation)))
-             .where(FavoriteWord.user_id == user_id))
+              .options(joinedload(FavoriteWord.word).options(joinedload(Word.translation)))
+              .where(FavoriteWord.user_id == user_id))
              .order_by(func.random())
              .limit(1))
     random_user_favorite_word = await session.scalar(query)
     return random_user_favorite_word
 
 
-async def check_word_in_favorite(session: AsyncSession, word_id: uuid.UUID, user_id: int):
+async def get_user_favorite_words(session: AsyncSession, word_id: uuid.UUID, user_id: int):
     query = select(FavoriteWord).where(and_(FavoriteWord.word_id == word_id, FavoriteWord.user_id == user_id))
     result = await session.scalar(query)
-    return False if result is None else True
+    return result
+
+
+async def get_user_favorite_word(session: AsyncSession, telegram_id: int, word_id: uuid.UUID):
+    query = (select(FavoriteWord)
+             .join(FavoriteWord.user)
+             .where(and_(User.telegram_id == telegram_id, FavoriteWord.word_id == word_id)))
+    user_favorite_word = await session.scalar(query)
+    return user_favorite_word
+
+
+async def get_sentence(session: AsyncSession, sentence_id):
+    sentence = await session.scalar(select(Sentence).where(Sentence.id == sentence_id))
+    return sentence
 
 
 async def get_random_sentence_for_translate(session: AsyncSession, language_from_id, language_to_id):
