@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import async_session_maker
 from src.models import Word, FavoriteWord, TranslationWord, Sentence, TranslationSentence
@@ -15,8 +16,8 @@ from src.users.query import get_user
 
 
 class QuizService:
-    def __init__(self):
-        self.session = async_session_maker()
+    def __init__(self, session: AsyncSession):
+        self.session = session
 
     async def add_word(
             self,

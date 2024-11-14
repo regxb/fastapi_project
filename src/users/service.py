@@ -1,14 +1,14 @@
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import async_session_maker
 from src.models import User
 from src.users.query import get_user, get_all_users, get_user_data
 from src.users.schemas import UserCreate, UserUpdate
 
 
 class UserService:
-    def __init__(self):
-        self.session = async_session_maker()
+    def __init__(self, session: AsyncSession):
+        self.session = session
 
     async def create_user(self, user_data: UserCreate):
         async with self.session as session:

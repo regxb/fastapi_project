@@ -3,23 +3,26 @@ import uuid
 from typing import List
 
 from fastapi import HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import async_session_maker
 from src.exams.query import get_user_exam
 from src.exams.utils import update_user_progress
 from src.models import Exam, TranslationWord
 from src.quizzes.query import get_sentence
-from src.quizzes.router import get_match_words, get_random_word, get_random_sentence
+from src.quizzes.service import QuizService
 from src.quizzes.utils import delete_punctuation
 from src.users.query import get_user
 
 
 class ExamService:
 
-    exercises = [get_match_words, get_random_word, get_random_sentence]
-
-    def __init__(self):
-        self.session = async_session_maker()
+    def __init__(self, session: AsyncSession):
+        self.session = session
+        self.quiz_service = QuizService(session)
+        self.exercises = [self.quiz_service.get_random_sentence,
+                          self.quiz_service.get_random_word,
+                          self.quiz_service.get_match_words]
 
     async def start_exam(self, telegram_id: int):
         async with self.session as session:
@@ -33,7 +36,7 @@ class ExamService:
                 except Exception:
                     await session.rollback()
                     raise HTTPException(status_code=500, detail="Ошибка при создании экзамена")
-            random_exercise = random.choice(ExamService.exercises)
+            random_exercise = random.choice(self.exercises)
             exercise = await random_exercise(telegram_id)
             response = dict(exercise)
             response["user_progress"] = user_exam.progress

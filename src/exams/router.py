@@ -28,8 +28,8 @@ router = APIRouter(
 
 
 @router.get("/exam")
-async def start_exam(telegram_id: int):
-    exam = ExamService()
+async def start_exam(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
+    exam = ExamService(session)
     return await exam.start_exam(telegram_id)
 
 
@@ -37,16 +37,17 @@ async def start_exam(telegram_id: int):
 async def check_exam_sentence_answer(
         sentence_id: uuid.UUID,
         telegram_id: int,
-        user_words: List[str] = Query(...)):
-    exam = ExamService()
+        user_words: List[str] = Query(...),
+        session: AsyncSession = Depends(get_async_session)):
+    exam = ExamService(session)
     return await exam.check_exam_sentence_answer(sentence_id, telegram_id, user_words)
 
 
 @router.get("/check-exam-answer", response_model=bool)
-async def check_exam_answer(word_for_translate_id: uuid.UUID, user_word_id: uuid.UUID, telegram_id: int):
-    exam = ExamService()
+async def check_exam_answer(word_for_translate_id: uuid.UUID, user_word_id: uuid.UUID, telegram_id: int,
+                            session: AsyncSession = Depends(get_async_session)):
+    exam = ExamService(session)
     return await exam.check_exam_answer(word_for_translate_id, user_word_id, telegram_id)
-
 
 # @router.post("/start", response_model=ExamAnswerResponse)
 # async def start_exam(exam_user_data: ExamData, session: AsyncSession = Depends(get_async_session)):
