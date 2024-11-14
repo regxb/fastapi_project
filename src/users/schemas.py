@@ -39,3 +39,7 @@ class UserInfo(BaseModel):
     learning_language_from_id: int
     learning_language_to_id: int
     created_at: datetime
+
+
+class UserUpdate(UserCreate):
+    ...
