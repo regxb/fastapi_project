@@ -9,6 +9,11 @@ from sqlalchemy.orm import joinedload
 from src.models import Word, TranslationWord, FavoriteWord, Sentence, TranslationSentence, Language, User
 
 
+async def get_translation_words(session: AsyncSession, word_id: uuid.UUID) -> Optional[TranslationWord]:
+    word = await session.get(TranslationWord, word_id)
+    return word
+
+
 async def get_random_word_for_translate(session: AsyncSession, language_from_id: int):
     query = (select(Word)
              .options(joinedload(Word.translation))

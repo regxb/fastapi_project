@@ -1,18 +1,13 @@
-import random
-import string
 import uuid
-from typing import AsyncGenerator
 
-from fastapi import Depends, HTTPException, Query
-from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException, Query
 
-from src.database import get_async_session, async_session_maker
-from src.models import Word, FavoriteWord, User, TranslationWord, Sentence, TranslationSentence
+from src.database import async_session_maker
+from src.models import Word, FavoriteWord, TranslationWord, Sentence, TranslationSentence
 from src.quizzes.constants import AvailableLanguages, AvailablePartOfSpeech, AvailableWordLevel, languages, levels
 from src.quizzes.query import get_random_word_for_translate, get_random_words, get_user_favorite_words, \
     get_user_favorite_word, get_random_user_favorite_word, get_random_sentence_for_translate, \
-    get_random_words_for_sentence, get_sentence, get_random_words_for_match
+    get_random_words_for_sentence, get_sentence, get_random_words_for_match, get_translation_words
 from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord, RandomSentenceResponse
 from src.quizzes.utils import add_word_for_translate_to_other_words, shuffle_random_words, delete_punctuation
 from src.schemas import WordInfo, SentenceInfo
@@ -134,7 +129,6 @@ class QuizService:
             telegram_id: int) -> RandomWordResponse:
         async with self.session as session:
             user = await get_user(session, telegram_id)
-
             word_for_translate = await get_random_word_for_translate(session, user.learning_language_from_id)
             other_words = await get_random_words(session, user.learning_language_to_id, word_for_translate.id)
 
@@ -190,11 +184,6 @@ class QuizService:
             )
             return response
 
-    async def check_sentence_answer(self, sentence_id: uuid.UUID, user_words: list[str] = Query(...), ):
-        async with self.session as session:
-            sentence = await get_sentence(session, sentence_id)
-            return delete_punctuation(sentence.name).lower() == " ".join(user_words).lower()
-
     async def get_match_words(self, telegram_id: int):
         async with self.session as session:
             user = await get_user(session, telegram_id)
@@ -205,3 +194,13 @@ class QuizService:
             shuffle_random_words(translation_words_list)
             response = {"words": words_list, "translation_words": translation_words_list}
             return response
+
+    async def check_answer(self, word_for_translate_id: uuid.UUID, user_word_id: uuid.UUID):
+        async with self.session as session:
+            word = await get_translation_words(session, user_word_id)
+            return word_for_translate_id == word.word_id
+
+    async def check_sentence_answer(self, sentence_id: uuid.UUID, user_words: list[str] = Query(...), ):
+        async with self.session as session:
+            sentence = await get_sentence(session, sentence_id)
+            return delete_punctuation(sentence.name).lower() == " ".join(user_words).lower()
