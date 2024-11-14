@@ -47,7 +47,7 @@ class QuizService:
             try:
                 await session.commit()
                 return {"message": "Слово успешно добавлено"}
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise HTTPException(status_code=500, detail="Ошибка при добавлении слова")
 
@@ -78,7 +78,7 @@ class QuizService:
             try:
                 await session.commit()
                 return {"message": "Предложение успешно добавлено"}
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise HTTPException(status_code=500, detail="Ошибка при добавлении предложения")
 
@@ -104,7 +104,7 @@ class QuizService:
             try:
                 await session.commit()
                 return {"message": "Слово успешно добавлено"}
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise HTTPException(status_code=500, detail="Ошибка при добавлении слова в избранное")
 
@@ -120,7 +120,7 @@ class QuizService:
                 await session.delete(user_favorite_word)
                 await session.commit()
                 return {"message": "Слово было удалено"}
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise HTTPException(status_code=500, detail="Ошибка при удалении слова из избранного")
 

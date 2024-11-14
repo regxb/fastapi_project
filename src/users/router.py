@@ -1,14 +1,9 @@
-from typing import List
+from typing import Sequence
 
-from fastapi import Depends, HTTPException, APIRouter
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter
 
-from src.models import User
-from src.users.query import get_user
-from src.users.schemas import UserCreate, UserInfo
-from src.database import get_async_session
+from src.users.schemas import UserCreate, UserInfo, UserUpdate
+from src.users.service import UserService
 
 router = APIRouter(
     prefix="/user",
@@ -17,47 +12,24 @@ router = APIRouter(
 
 
 @router.post("")
-async def create_user(user_data: UserCreate, session: AsyncSession = Depends(get_async_session)):
-    existing_user = await session.scalar(select(User).where(User.telegram_id == user_data.telegram_id))
-    if existing_user:
-        raise HTTPException(status_code=203, detail="Пользователь уже зарегистрирован")
-    new_user = User(
-        telegram_id=user_data.telegram_id,
-        learning_language_from_id=user_data.learning_language_from_id,
-        learning_language_to_id=user_data.learning_language_to_id
-    )
-    session.add(new_user)
-    try:
-        await session.commit()
-        await session.refresh(new_user)
-    except IntegrityError:
-        await session.rollback()
-        raise HTTPException(status_code=500, detail="Ошибка при сохранении пользователя")
-
-    return {"response": f"Пользователь с id {new_user.id} успешно создан"}
+async def create_user(user_data: UserCreate):
+    user = UserService()
+    return await user.create_user(user_data)
 
 
-@router.get("", response_model=List[UserInfo])
-async def get_users_list(session: AsyncSession = Depends(get_async_session)):
-    result = await session.execute(select(User))
-    users_list = result.scalars().all()
-    return users_list
+@router.get("", response_model=Sequence[UserInfo])
+async def get_users_list():
+    user = UserService()
+    return await user.get_users_list()
 
 
 @router.get("/{telegram_id}", response_model=UserInfo)
-async def get_user_info(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
-    user_data = await session.scalar(select(User).where(User.telegram_id == telegram_id))
-    if user_data is None:
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-    return user_data
+async def get_user_info(telegram_id: int):
+    user = UserService()
+    return await user.get_user_info(telegram_id)
 
 
 @router.patch("/change-user-language")
-async def change_user_language(
-        user_data: UserCreate,
-        session: AsyncSession = Depends(get_async_session)
-        ):
-    user = await get_user(session, user_data.telegram_id)
-    user.learning_language_to_id = user_data.learning_language_to_id
-    user.learning_language_from_id = user_data.learning_language_from_id
-    await session.commit()
+async def change_user_language(user_data: UserUpdate):
+    user = UserService()
+    return await user.change_user_language(user_data)
