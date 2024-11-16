@@ -23,6 +23,7 @@ class User(Base):
 
     # exam: Mapped["Exam"] = relationship(back_populates="user")
     favorite_word: Mapped["FavoriteWord"] = relationship(back_populates="user")
+    competition_statistics: Mapped["CompetitionStatistics"] = relationship(back_populates="user")
 
 
 # class Exam(Base):

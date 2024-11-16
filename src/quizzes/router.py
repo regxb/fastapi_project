@@ -105,6 +105,4 @@ async def get_match_words(telegram_id: int, session: AsyncSession = Depends(get_
     return await quiz.get_match_words(telegram_id)
 
 
-@router.get("/test")
-def get_test():
-    time.sleep(1)
+
