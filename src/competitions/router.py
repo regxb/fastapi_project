@@ -11,6 +11,7 @@ from starlette.responses import HTMLResponse
 from starlette.websockets import WebSocketDisconnect
 
 from src import CompetitionStatistics, Competitions
+from src.competitions.schemas import CompetitionStatisticsSchema
 from src.database import get_async_session
 from src.models import User
 from src.quizzes.query import get_random_word_for_translate, get_random_words
@@ -82,24 +83,25 @@ async def create_room(session: AsyncSession = Depends(get_async_session)):
 
 
 @router.post("/join-room/{rom_id}")
-async def join_room(telegram_id: int, room_id: int, session: AsyncSession = Depends(get_async_session)):
-    user = await get_user(session, telegram_id)
+async def join_room(room_data: CompetitionStatisticsSchema, session: AsyncSession = Depends(get_async_session)):
+    user = await get_user(session, room_data.telegram_id)
     query = (select(CompetitionStatistics)
-             .where(and_(CompetitionStatistics.competition_id == room_id, CompetitionStatistics.user_id == user.id)))
+             .where(and_(CompetitionStatistics.competition_id == room_data.room_id,
+                         CompetitionStatistics.user_id == user.id)))
     statistics_room_exists = await session.scalar(query)
-    query = select(Competitions).where(Competitions.id == room_id)
+    query = select(Competitions).where(Competitions.id == room_data.room_id)
     competition_room_exists = await session.scalar(query)
     if not competition_room_exists:
         raise HTTPException(status_code=404, detail="Комната не найдена")
     if not statistics_room_exists:
-        new_competitions_statistics = CompetitionStatistics(competition_id=room_id, user_id=user.id)
+        new_competitions_statistics = CompetitionStatistics(competition_id=room_data.room_id, user_id=user.id)
         session.add(new_competitions_statistics)
         try:
             await session.commit()
         except Exception:
             await session.rollback()
             raise HTTPException(status_code=500, detail="Ошибка при создании статистики комнаты")
-    return {"room_id": room_id, "message": f"Пользователь зашел в комнату {room_id}"}
+    return {"room_id": room_data.room_id, "message": f"Пользователь зашел в комнату {room_data.room_id}"}
 
 
 @router.get("/start")
@@ -108,6 +110,7 @@ async def start(telegram_id: int, room_id: int, session: AsyncSession = Depends(
     competition_room = await session.scalar(query)
     if competition_room.status == "awaiting":
         competition_room.status = "active"
+        await session.commit()
     user = await get_user(session, telegram_id)
     word_for_translate = await get_random_word_for_translate(session, user.learning_language_from_id)
     other_words = await get_random_words(session, user.learning_language_to_id, word_for_translate.id)

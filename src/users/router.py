@@ -14,8 +14,8 @@ router = APIRouter(
 
 
 @router.post("")
-async def create_user(user_data: UserCreate):
-    user = UserService()
+async def create_user(user_data: UserCreate, session: AsyncSession = Depends(get_async_session)):
+    user = UserService(session)
     return await user.create_user(user_data)
 
 

@@ -26,7 +26,7 @@ async def add_word(
         level: AvailableWordLevel,
         session: AsyncSession = Depends(get_async_session)
 ):
-    quiz = QuizService()
+    quiz = QuizService(session)
     return await quiz.add_word(translation_from_language, word_to_translate, translation_to_language, translation_word,
                                part_of_speech, level)
 
