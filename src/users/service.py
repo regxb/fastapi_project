@@ -13,7 +13,7 @@ class UserService:
 
     async def create_user(self, user_data: UserCreate):
         async with self.session as session:
-            user = await get_user(session, user_data.telegram_id)
+            user = await session.scalar(select(User).where(User.telegram_id == user_data.telegram_id))
             if user:
                 raise HTTPException(status_code=203, detail="Пользователь уже зарегистрирован")
             new_user = User(
