@@ -18,7 +18,7 @@ async def get_user(session: AsyncSession, telegram_id: int) -> User:
         return user
     query = select(User).where(User.telegram_id == telegram_id)
     user = await session.scalar(query)
-    await redis_conn.set(telegram_id, json.dumps(user.to_dict()))
+    await redis_conn.set(telegram_id, json.dumps(user.to_dict()), ex=3600)
     return user
 
 
