@@ -30,6 +30,16 @@ services:
       - "traefik.http.routers.fastapi.tls=true"
       - "traefik.http.routers.fastapi.tls.certresolver=letsencrypt"
 
+
+  redis:
+    container_name: redis_fastapi
+    image: redis
+    volumes:
+      - ./redis/data:/data
+    expose:
+      - 6379
+
+
   traefik:
       build:
         context: .
