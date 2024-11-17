@@ -25,6 +25,25 @@ class User(Base):
     favorite_word: Mapped["FavoriteWord"] = relationship(back_populates="user")
     competition_statistics: Mapped["CompetitionStatistics"] = relationship(back_populates="user")
 
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "telegram_id": self.telegram_id,
+            "learning_language_from_id": self.learning_language_from_id,
+            "learning_language_to_id": self.learning_language_to_id,
+            "rating": self.rating
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            id=data["id"],
+            telegram_id=data["telegram_id"],
+            learning_language_from_id=data["learning_language_from_id"],
+            learning_language_to_id=data["learning_language_to_id"],
+            rating=data["rating"]
+        )
+
 
 # class Exam(Base):
 #     __tablename__ = "exam"
