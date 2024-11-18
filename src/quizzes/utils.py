@@ -17,3 +17,5 @@ def shuffle_random_words(other_words: list) -> list:
 def delete_punctuation(text: str) -> str:
     new_text = text.translate(str.maketrans('', '', string.punctuation))
     return new_text
+
+

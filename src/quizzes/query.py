@@ -2,11 +2,13 @@ import random
 import uuid
 from typing import Optional
 
-from sqlalchemy import select, func, and_
+from fastapi import HTTPException
+from sqlalchemy import select, func, and_, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.models import Word, TranslationWord, FavoriteWord, Sentence, TranslationSentence, Language, User
+from src.quizzes.constants import AvailableLanguages
 
 
 async def get_translation_words(session: AsyncSession, word_id: uuid.UUID) -> Optional[TranslationWord]:
@@ -90,6 +92,11 @@ async def get_available_languages(session: AsyncSession):
     return [{"id": w.id, "name": w.language} for w in available_languages.scalars().all()]
 
 
+async def get_available_part_of_speech(session: AsyncSession):
+    available_part_of_speech = await session.execute(select(distinct(Word.part_of_speech)))
+    return [w for w in available_part_of_speech.scalars().all()]
+
+
 async def get_random_words_for_match(session: AsyncSession, language_from_id):
     query = ((select(Word)
               .options(joinedload(Word.translation))
@@ -99,3 +106,13 @@ async def get_random_words_for_match(session: AsyncSession, language_from_id):
     result = await session.execute(query)
     words = result.scalars().all()
     return words
+
+
+async def get_language_to(session: AsyncSession, language_to: AvailableLanguages):
+    language_to = await session.scalar(select(Language).where(Language.language == language_to.value))
+    return language_to
+
+
+async def get_language_from(session: AsyncSession, language_from: AvailableLanguages):
+    language_from = await session.scalar(select(Language).where(Language.language == language_from.value))
+    return language_from

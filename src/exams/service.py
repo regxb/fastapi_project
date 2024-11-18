@@ -10,7 +10,7 @@ from src.exams.query import get_user_exam
 from src.exams.utils import update_user_progress
 from src.models import Exam, TranslationWord
 from src.quizzes.query import get_sentence
-from src.quizzes.service import QuizService
+from src.quizzes.service import WordService, SentenceService
 from src.quizzes.utils import delete_punctuation
 from src.users.query import get_user
 
@@ -19,10 +19,11 @@ class ExamService:
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        self.quiz_service = QuizService(session)
-        self.exercises = [self.quiz_service.get_random_sentence,
-                          self.quiz_service.get_random_word,
-                          self.quiz_service.get_match_words]
+        self.word_service = WordService(session)
+        self.sentence_service = SentenceService(session)
+        self.exercises = [self.sentence_service.get_random_sentence,
+                          self.word_service.get_random_word,
+                          self.word_service.get_match_words]
 
     async def start_exam(self, telegram_id: int):
         async with self.session as session:

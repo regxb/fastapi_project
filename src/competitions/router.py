@@ -15,7 +15,7 @@ from src.competitions.schemas import CompetitionStatisticsSchema
 from src.database import get_async_session
 from src.models import User
 from src.quizzes.query import get_random_word_for_translate, get_random_words
-from src.quizzes.service import QuizService
+from src.quizzes.service import AnswerService
 from src.quizzes.utils import add_word_for_translate_to_other_words, shuffle_random_words
 from src.users.query import get_user
 from fastapi.websockets import WebSocket
@@ -136,8 +136,8 @@ async def check_competition_answer(
     result = await session.execute(query)
     users_stats = result.scalars().all()
     user = await get_user(session, telegram_id)
-    quiz_service = QuizService(session)
-    result = await quiz_service.check_answer(word_for_translate_id, user_word_id)
+    answer_service = AnswerService(session)
+    result = await answer_service.check_answer(word_for_translate_id, user_word_id)
     await update_competition_statistics(user, room_id, result, session)
     return [{"user": {"telegram_id": user.user.telegram_id, "points": user.user_points}} for user in users_stats]
 

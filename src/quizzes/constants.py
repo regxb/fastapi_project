@@ -2,9 +2,9 @@ from enum import Enum
 
 
 class AvailableLanguages(str, Enum):
-    en = "en"
-    ru = "ru"
-    fr = "fr"
+    en = "english"
+    ru = "russian"
+    fr = "french"
 
 
 class AvailableWordLevel(str, Enum):
