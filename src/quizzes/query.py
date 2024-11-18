@@ -1,8 +1,8 @@
+import json
 import random
 import uuid
 from typing import Optional
-
-from fastapi import HTTPException
+import redis.asyncio as redis
 from sqlalchemy import select, func, and_, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -88,13 +88,27 @@ async def get_random_words_for_sentence(session: AsyncSession, language_to_id: i
 
 
 async def get_available_languages(session: AsyncSession):
-    available_languages = await session.execute(select(Language))
-    return [{"id": w.id, "name": w.language} for w in available_languages.scalars().all()]
+    redis_conn = await redis.from_url("redis://redis:6379")
+
+    value = await redis_conn.get("languages")
+    if value:
+        return json.loads(value)
+    query = await session.execute(select(Language))
+    languages = query.scalars().all()
+    languages_data = [{"id": w.id, "name": w.language} for w in languages]
+    await redis_conn.set("languages", json.dumps(languages_data), ex=3600)
+    return languages_data
 
 
 async def get_available_part_of_speech(session: AsyncSession):
-    available_part_of_speech = await session.execute(select(distinct(Word.part_of_speech)))
-    return [w for w in available_part_of_speech.scalars().all()]
+    redis_conn = await redis.from_url("redis://redis:6379")
+    value = await redis_conn.get("parts_of_speech")
+    if value:
+        return json.loads(value)
+    query = await session.execute(select(distinct(Word.part_of_speech)))
+    available_part_of_speech = query.scalars().all()
+    await redis_conn.set("parts_of_speech", json.dumps([w for w in available_part_of_speech]), ex=3600)
+    return [w for w in available_part_of_speech]
 
 
 async def get_random_words_for_match(session: AsyncSession, language_from_id):

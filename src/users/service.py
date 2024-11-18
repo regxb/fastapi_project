@@ -1,5 +1,4 @@
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import User
@@ -13,7 +12,7 @@ class UserService:
 
     async def create_user(self, user_data: UserCreate):
         async with self.session as session:
-            user = await session.scalar(select(User).where(User.telegram_id == user_data.telegram_id))
+            user = await get_user(session, user_data.telegram_id)
             if user:
                 raise HTTPException(status_code=203, detail="Пользователь уже зарегистрирован")
             new_user = User(
@@ -33,7 +32,7 @@ class UserService:
 
     async def change_user_language(self, user_data: UserUpdate):
         async with self.session as session:
-            user = await session.scalar(select(User).where(User.telegram_id == user_data.telegram_id))
+            user = await get_user(session, user_data.telegram_id)
             user.learning_language_to_id = user_data.learning_language_to_id
             user.learning_language_from_id = user_data.learning_language_from_id
             try:
