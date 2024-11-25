@@ -30,8 +30,8 @@ class ExamService:
             user = await get_user(session, telegram_id)
             user_exam = await get_user_exam(session, user.id)
             if not user_exam:
-                new_user_exam = Exam(user_id=user.id)
-                session.add(new_user_exam)
+                user_exam = Exam(user_id=user.id)
+                session.add(user_exam)
                 try:
                     await session.commit()
                 except Exception:

@@ -1,22 +1,12 @@
-
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.exams.constants import levels
 from src.models import Exam, User
 
 
 async def update_user_rating(user_rating: str) -> str:
-    if user_rating == "A1":
-        return "A2"
-    elif user_rating == "A2":
-        return "B1"
-    elif user_rating == "B1":
-        return "B2"
-    elif user_rating == "B2":
-        return "C1"
-    elif user_rating == "C1":
-        return "C2"
-    elif user_rating == "C2":
-        return "C2"
+    return levels[user_rating]
 
 
 async def update_user_progress(result: bool, user_exam: Exam, user: User, session: AsyncSession):
@@ -25,16 +15,28 @@ async def update_user_progress(result: bool, user_exam: Exam, user: User, sessio
             user_exam.status = "completed"
             new_user_rating = await update_user_rating(user.rating)
             user.rating = new_user_rating
-            await session.commit()
-            return {"message": "exam is completed"}
+            try:
+                await session.commit()
+                return {"message": "exam is completed"}
+            except Exception:
+                await session.rollback()
+                raise HTTPException(status_code=500, detail="Ошибка при обновлении данных")
         user_exam.progress += 1
         await session.commit()
         return True
     else:
         if user_exam.attempts == 0:
             user_exam.status = "failed"
-            await session.commit()
-            return {"message": "Exam is failed"}
+            try:
+                await session.commit()
+                return {"message": "exam is failed"}
+            except Exception:
+                await session.rollback()
+                raise HTTPException(status_code=500, detail="Ошибка при обновлении данных")
         user_exam.attempts -= 1
-        await session.commit()
-        return False
+        try:
+            await session.commit()
+            return False
+        except Exception:
+            await session.rollback()
+            raise HTTPException(status_code=500, detail="Ошибка при обновлении данных")
