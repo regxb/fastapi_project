@@ -2,10 +2,10 @@ from enum import Enum
 
 
 class AvailableLanguages(Enum):
-    russian = 1
-    english = 2
-    french = 3
+    russian = "russian"
+    english = "english"
+    french = "french"
 
     @classmethod
     def __contains__(cls, item):
-        return item in (lang.name for lang in cls)
+        return item in [idx + 1 for idx, _ in enumerate(cls)]

@@ -1,9 +1,10 @@
 import random
 import string
+import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import User, Word, TranslationWord
+from src.models import Word, TranslationWord, Sentence, TranslationSentence, FavoriteWord
 from src.utils import commit_changes
 
 
@@ -50,3 +51,47 @@ async def create_word_with_translation(
     session.add(new_translation_word)
     await commit_changes(session, "Ошибка при добавлении слова")
     return {"message": "Слово успешно добавлено"}
+
+
+async def create_new_sentence_with_translation(
+        session: AsyncSession,
+        translation_from_language: int,
+        sentence_to_translate: str,
+        translation_to_language: int,
+        translation_sentence: str,
+        level: str
+):
+    new_sentence = Sentence(
+        name=sentence_to_translate,
+        language_id=translation_from_language,
+        level=level
+    )
+
+    session.add(new_sentence)
+    await session.flush()
+
+    new_translation_sentence = TranslationSentence(
+        name=translation_sentence,
+        sentence_id=new_sentence.id,
+        from_language_id=translation_from_language,
+        to_language_id=translation_to_language,
+    )
+    session.add(new_translation_sentence)
+    await commit_changes(session, "Ошибка при добавлении предложения")
+    return {"message": "Предложение успешно добавлено"}
+
+
+async def add_word_to_favorite(session: AsyncSession, user_id: int, word_id: uuid.UUID):
+    new_favorite_word = FavoriteWord(
+        user_id=user_id,
+        word_id=word_id
+    )
+    session.add(new_favorite_word)
+    await commit_changes(session, "Ошибка при добавлении слова в избранное")
+    return {"message": "Слово успешно добавлено в избранное"}
+
+
+async def delete_word_from_favorite(session: AsyncSession, user_favorite_word: uuid.UUID):
+    await session.delete(user_favorite_word)
+    await commit_changes(session, "Ошибка при удалении слова из избранного")
+    return {"message": "Слово было удалено"}

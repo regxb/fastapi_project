@@ -1,9 +1,10 @@
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import User
 from src.users.query import get_user, get_all_users, get_user_data
-from src.users.schemas import UserCreate, UserUpdate
+from src.users.schemas import UserCreate, UserUpdate, UserInfo
+from src.users.utils import create_new_user
+from src.utils import commit_changes
 
 
 class UserService:
@@ -15,32 +16,18 @@ class UserService:
             user = await get_user(session, user_data.telegram_id)
             if user:
                 raise HTTPException(status_code=203, detail="Пользователь уже зарегистрирован")
-            new_user = User(
-                telegram_id=user_data.telegram_id,
-                learning_language_from_id=user_data.learning_language_from_id,
-                learning_language_to_id=user_data.learning_language_to_id
-            )
-            session.add(new_user)
-            try:
-                await session.commit()
-                await session.refresh(new_user)
-            except Exception:
-                await session.rollback()
-                raise HTTPException(status_code=500, detail="Ошибка при сохранении пользователя")
 
-            return {"response": f"Пользователь с id {new_user.id} успешно создан"}
+            result = await create_new_user(session, user_data.telegram_id, user_data.learning_language_from_id,
+                                           user_data.learning_language_to_id)
+            return result
 
     async def change_user_language(self, user_data: UserUpdate):
         async with self.session as session:
             user = await get_user(session, user_data.telegram_id)
             user.learning_language_to_id = user_data.learning_language_to_id
             user.learning_language_from_id = user_data.learning_language_from_id
-            try:
-                await session.commit()
-                return {"message": "Данные успешно обновлены"}
-            except Exception:
-                await session.rollback()
-                raise HTTPException(status_code=500, detail="Ошибка при обновлении данных")
+            await commit_changes(session, message="Ошибка при обновлении данных")
+            return {"message": "Данные успешно обновлены"}
 
     async def get_users_list(self):
         async with self.session as session:

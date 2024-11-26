@@ -4,7 +4,7 @@ from fastapi import HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.constants import AvailableLanguages
-from src.models import Word, FavoriteWord, TranslationWord, Sentence, TranslationSentence
+from src.models import Word
 from src.quizzes.constants import AvailablePartOfSpeech, AvailableWordLevel
 from src.quizzes.query import get_random_word_for_translate, get_random_words, get_user_favorite_words, \
     get_user_favorite_word, get_random_user_favorite_word, get_random_sentence_for_translate, \
@@ -12,7 +12,7 @@ from src.quizzes.query import get_random_word_for_translate, get_random_words, g
     get_language_from
 from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord, RandomSentenceResponse
 from src.quizzes.utils import add_word_for_translate_to_other_words, shuffle_random_words, delete_punctuation, \
-    create_word_with_translation
+    create_word_with_translation, create_new_sentence_with_translation, add_word_to_favorite, delete_word_from_favorite
 from src.schemas import WordInfo, SentenceInfo
 from src.users.query import get_user
 
@@ -89,18 +89,8 @@ class FavoriteWordService:
             if new_favorite_word_is_exists:
                 raise HTTPException(status_code=201, detail="Данное слово уже добавлено пользователем")
 
-            new_favorite_word = FavoriteWord(
-                user_id=user.id,
-                word_id=word.id
-            )
-            session.add(new_favorite_word)
-
-            try:
-                await session.commit()
-                return {"message": "Слово успешно добавлено"}
-            except Exception:
-                await session.rollback()
-                raise HTTPException(status_code=500, detail="Ошибка при добавлении слова в избранное")
+            result = await add_word_to_favorite(session, user.id, word.id)
+            return result
 
     async def delete_favorite_word(self, data: UserFavoriteWord):
         async with self.session as session:
@@ -108,15 +98,10 @@ class FavoriteWordService:
             user_favorite_word = await get_user_favorite_word(session, data.telegram_id, data.word_id)
 
             if user_favorite_word is None:
-                raise HTTPException(status_code=404, detail="У пользователя нет такого слова в избранном")
+                raise HTTPException(status_code=404, detail="Пользователь не добавлял это слово в избранное")
 
-            try:
-                await session.delete(user_favorite_word)
-                await session.commit()
-                return {"message": "Слово было удалено"}
-            except Exception:
-                await session.rollback()
-                raise HTTPException(status_code=500, detail="Ошибка при удалении слова из избранного")
+            result = await delete_word_from_favorite(session, user_favorite_word)
+            return result
 
     async def get_random_favorite_word(self, telegram_id: int):
         async with self.session as session:
@@ -148,29 +133,16 @@ class SentenceService:
             translation_to_language: AvailableLanguages,
             translation_sentence: str,
             level: AvailableWordLevel):
-
         async with self.session as session:
-            new_sentence = Sentence(
-                name=sentence_to_translate,
-                language_id=translation_from_language.name,
-                level=level.name
-            )
-            session.add(new_sentence)
-            await session.flush()
+            language_to = await get_language_to(session, translation_to_language)
+            language_from = await get_language_from(session, translation_from_language)
 
-            new_translation_sentence = TranslationSentence(
-                name=translation_sentence,
-                sentence_id=new_sentence.id,
-                from_language_id=translation_from_language.name,
-                to_language_id=translation_to_language.name,
-            )
-            session.add(new_translation_sentence)
-            try:
-                await session.commit()
-                return {"message": "Предложение успешно добавлено"}
-            except Exception:
-                await session.rollback()
-                raise HTTPException(status_code=500, detail="Ошибка при добавлении предложения")
+            result = await create_new_sentence_with_translation(
+                session, language_from.id,
+                sentence_to_translate, language_to.id,
+                translation_sentence, level.value)
+
+            return result
 
     async def get_random_sentence(self, telegram_id: int):
         async with self.session as session:
