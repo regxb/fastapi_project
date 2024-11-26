@@ -57,8 +57,9 @@ def add_user_statistics(exercise_data: dict, user_exam: Exam):
 
 async def get_random_exercise(exercises: list, telegram_id: int) -> dict:
     random_exercise = random.choice(exercises)
-    exercise = await random_exercise(telegram_id)
-    return dict(exercise)
+    random_exercise = await random_exercise(telegram_id)
+    exercise = random_exercise.dict()
+    return exercise
 
 
 async def create_exam(user_id: int, session: AsyncSession):

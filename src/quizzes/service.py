@@ -54,6 +54,7 @@ class WordService:
             in_favorite = await get_user_favorite_words(session, word_for_translate.id, user.id)
 
             response = RandomWordResponse(
+                type="random_word",
                 word_for_translate=WordInfo(name=word_for_translate.name, id=word_for_translate.id),
                 other_words=[WordInfo(name=w.name, id=w.id) for w in other_words],
                 in_favorite=False if in_favorite is None else True
@@ -114,6 +115,7 @@ class FavoriteWordService:
             shuffle_random_words(other_words)
 
             response = RandomWordResponse(
+                type="random_word",
                 word_for_translate=WordInfo(name=random_user_favorite_word.word.name,
                                             id=random_user_favorite_word.word_id),
                 other_words=[WordInfo(name=w.name, id=w.id) for w in other_words],
@@ -158,6 +160,7 @@ class SentenceService:
             shuffle_random_words(words_for_sentence)
 
             response = RandomSentenceResponse(
+                type="random_sentence",
                 sentence_for_translate=SentenceInfo(
                     id=random_sentence_for_translate.id,
                     name=random_sentence_for_translate.translation.name

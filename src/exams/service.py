@@ -21,8 +21,8 @@ class ExamService:
         self.word_service = WordService(session)
         self.sentence_service = SentenceService(session)
         self.exercises = [self.sentence_service.get_random_sentence,
-                          self.word_service.get_random_word,
-                          self.word_service.get_match_words]
+                          self.word_service.get_random_word]
+                          # self.word_service.get_match_words
 
     async def start_exam(self, telegram_id: int) -> ExamSchema:
         async with self.session as session:
@@ -32,8 +32,11 @@ class ExamService:
                 user_exam = await create_exam(user.id, session)
 
             exercise = await get_random_exercise(self.exercises, telegram_id)
+            exercise_type = exercise["type"]
+            del exercise["type"]
 
             response = ExamSchema(
+                type=exercise_type,
                 exercise=exercise,
                 user_progress=user_exam.progress,
                 total_progress=user_exam.total_exercises,

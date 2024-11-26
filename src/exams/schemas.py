@@ -7,6 +7,7 @@ class ExamAnswerResponse(BaseModel):
 
 
 class ExamSchema(BaseModel):
+    type: str
     exercise: dict
     user_progress: int
     total_progress: int
