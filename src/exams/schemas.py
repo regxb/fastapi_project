@@ -7,4 +7,11 @@ from src.schemas import WordInfo
 
 class ExamAnswerResponse(BaseModel):
     success: bool
-    message: Optional[str]
+    message: str | None = None
+
+
+class ExamSchema(BaseModel):
+    exercise: dict
+    user_progress: int
+    total_progress: int
+    attempts: int

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.exams.query import get_user_exam
-from src.exams.schemas import ExamAnswerResponse
+from src.exams.schemas import ExamAnswerResponse, ExamSchema
 from src.exams.service import ExamService
 from src.exams.utils import update_user_progress
 from src.models import Word, User, TranslationWord, Sentence, Exam
@@ -28,7 +28,7 @@ router = APIRouter(
 )
 
 
-@router.get("/exam")
+@router.get("/exam", response_model=ExamSchema)
 async def start_exam(telegram_id: int, session: AsyncSession = Depends(get_async_session)):
     exam = ExamService(session)
     return await exam.start_exam(telegram_id)

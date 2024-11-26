@@ -1,6 +1,7 @@
 import random
 from uuid import uuid4
 
+from fastapi import HTTPException
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -27,3 +28,11 @@ async def check_favorite_words(user_id: int, word_id: uuid4, session: AsyncSessi
         return True
     else:
         return False
+
+
+async def commit_changes(session: AsyncSession, message: str):
+    try:
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail=f"{message}")
