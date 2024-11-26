@@ -4,7 +4,8 @@ from fastapi import Depends, APIRouter, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_async_session
-from src.quizzes.constants import AvailableLanguages, AvailablePartOfSpeech, AvailableWordLevel
+from src.constants import AvailableLanguages
+from src.quizzes.constants import AvailablePartOfSpeech, AvailableWordLevel
 from src.quizzes.query import get_available_languages, get_available_part_of_speech
 from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord, RandomSentenceResponse
 from src.quizzes.service import FavoriteWordService, WordService, SentenceService, AnswerService

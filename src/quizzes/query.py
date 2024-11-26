@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from src.models import Word, TranslationWord, FavoriteWord, Sentence, TranslationSentence, Language, User
-from src.quizzes.constants import AvailableLanguages
+from src.constants import AvailableLanguages
 
 
 async def get_translation_words(session: AsyncSession, word_id: uuid.UUID) -> Optional[TranslationWord]:

@@ -1,15 +1,13 @@
-import random
 import uuid
 from typing import List
 
-from fastapi import HTTPException, Query
+from fastapi import Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import async_session_maker
 from src.exams.query import get_user_exam
 from src.exams.schemas import ExamSchema, ExamAnswerResponse
 from src.exams.utils import update_user_progress, get_random_exercise, create_exam
-from src.models import Exam, TranslationWord
+from src.models import  TranslationWord
 from src.quizzes.query import get_sentence
 from src.quizzes.service import WordService, SentenceService
 from src.quizzes.utils import delete_punctuation

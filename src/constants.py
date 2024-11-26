@@ -1,12 +1,11 @@
-part_of_speech_list = {
-    "noun": "существительные",
-    "verb": "глаголы",
-    "adjective": "прилагательные",
-    "adverb": "наречия",
-    "determiner": "определители",
-    "pronoun": "местоимения",
-    "preposition": "предлоги",
-    "numeral": "числительные",
-    "conjunction": "союзы",
-    "other": "прочие слова",
-}
+from enum import Enum
+
+
+class AvailableLanguages(Enum):
+    russian = 1
+    english = 2
+    french = 3
+
+    @classmethod
+    def __contains__(cls, item):
+        return item in (lang.name for lang in cls)

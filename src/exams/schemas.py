@@ -1,8 +1,4 @@
-from typing import List, Dict, Optional
-
-from pydantic import BaseModel, ConfigDict
-
-from src.schemas import WordInfo
+from pydantic import BaseModel
 
 
 class ExamAnswerResponse(BaseModel):

@@ -1,12 +1,6 @@
 from enum import Enum
 
 
-class AvailableLanguages(str, Enum):
-    en = "english"
-    ru = "russian"
-    fr = "french"
-
-
 class AvailableWordLevel(str, Enum):
     a1 = 'A1'
     a2 = 'A2'
@@ -27,8 +21,3 @@ class AvailablePartOfSpeech(str, Enum):
     numeral = "Числительное"
     conjunction = "Союз"
     other = "Другое"
-
-
-languages = {"ru": 1, "en": 2, "fr": 3}
-parts_of_speech = {part.name: part.value for part in AvailablePartOfSpeech}
-levels = {level.name: level.value for level in AvailableWordLevel}

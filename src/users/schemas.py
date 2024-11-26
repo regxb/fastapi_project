@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, field_validator, model_validator
 
-from src.quizzes.constants import languages
+from src.constants import AvailableLanguages
 
 
 class UserCreate(BaseModel):
@@ -12,14 +12,14 @@ class UserCreate(BaseModel):
 
     @field_validator("learning_language_to_id")
     def check_language_to_exists(cls, learning_language_to_id):
-        if learning_language_to_id not in languages.values():
-            raise ValueError("Такого языка у нас не существует")
+        if learning_language_to_id not in AvailableLanguages:
+            raise ValueError(f"Язык с id{learning_language_to_id} не найден")
         return learning_language_to_id
 
     @field_validator("learning_language_from_id")
     def check_language_from_exists(cls, learning_language_from_id):
-        if learning_language_from_id not in languages.values():
-            raise ValueError("Такого языка у нас не существует")
+        if learning_language_from_id not in AvailableLanguages:
+            raise ValueError(f"Язык с id{learning_language_from_id} не найден")
         return learning_language_from_id
 
     @model_validator(mode='before')

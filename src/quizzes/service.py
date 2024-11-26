@@ -3,14 +3,16 @@ import uuid
 from fastapi import HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.constants import AvailableLanguages
 from src.models import Word, FavoriteWord, TranslationWord, Sentence, TranslationSentence
-from src.quizzes.constants import AvailableLanguages, AvailablePartOfSpeech, AvailableWordLevel, languages, levels
+from src.quizzes.constants import AvailablePartOfSpeech, AvailableWordLevel
 from src.quizzes.query import get_random_word_for_translate, get_random_words, get_user_favorite_words, \
     get_user_favorite_word, get_random_user_favorite_word, get_random_sentence_for_translate, \
     get_random_words_for_sentence, get_sentence, get_random_words_for_match, get_translation_words, get_language_to, \
     get_language_from
 from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord, RandomSentenceResponse
-from src.quizzes.utils import add_word_for_translate_to_other_words, shuffle_random_words, delete_punctuation
+from src.quizzes.utils import add_word_for_translate_to_other_words, shuffle_random_words, delete_punctuation, \
+    create_word_with_translation
 from src.schemas import WordInfo, SentenceInfo
 from src.users.query import get_user
 
@@ -32,29 +34,11 @@ class WordService:
             language_to = await get_language_to(session, language_to)
             language_from = await get_language_from(session, language_from)
 
-            new_word = Word(
-                name=word_to_translate,
-                language_id=language_from.id,
-                part_of_speech=part_of_speech.name,
-                level=level.upper()
-            )
+            result = await create_word_with_translation(self.session, language_from.id, word_to_translate,
+                                                        language_to.id, translation_word, part_of_speech.name,
+                                                        level.name)
 
-            session.add(new_word)
-            await session.flush()
-
-            new_translation_word = TranslationWord(
-                name=translation_word,
-                to_language_id=language_to.id,
-                from_language_id=language_from.id,
-                word_id=new_word.id
-            )
-            session.add(new_translation_word)
-            try:
-                await session.commit()
-                return {"message": "Слово успешно добавлено"}
-            except Exception:
-                await session.rollback()
-                raise HTTPException(status_code=500, detail="Ошибка при добавлении слова")
+            return result
 
     async def get_random_word(
             self,
@@ -168,8 +152,8 @@ class SentenceService:
         async with self.session as session:
             new_sentence = Sentence(
                 name=sentence_to_translate,
-                language_id=languages.get(translation_from_language),
-                level=levels.get(level.name)
+                language_id=translation_from_language.name,
+                level=level.name
             )
             session.add(new_sentence)
             await session.flush()
@@ -177,8 +161,8 @@ class SentenceService:
             new_translation_sentence = TranslationSentence(
                 name=translation_sentence,
                 sentence_id=new_sentence.id,
-                from_language_id=languages.get(translation_from_language),
-                to_language_id=languages.get(translation_to_language),
+                from_language_id=translation_from_language.name,
+                to_language_id=translation_to_language.name,
             )
             session.add(new_translation_sentence)
             try:
