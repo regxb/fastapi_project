@@ -33,9 +33,9 @@ class UserService:
         async with self.session as session:
             return await get_all_users(session)
 
-    async def get_user_info(self, telegram_id: int):
+    async def get_user_info(self, telegram_id: int) -> UserInfo:
         async with self.session as session:
             user_data = await get_user_data(session, telegram_id)
             if user_data is None:
                 raise HTTPException(status_code=404, detail="Пользователь не найден")
-            return user_data
+            return UserInfo(**user_data.__dict__)

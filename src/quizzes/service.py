@@ -5,9 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.quizzes.query import (get_random_word_for_translate, get_random_words, get_user_favorite_words,
                                get_random_user_favorite_word, get_random_sentence_for_translate,
-                               get_random_words_for_sentence, get_sentence, get_random_words_for_match,
-                               get_translation_words)
-from src.quizzes.schemas import RandomWordResponse, RandomSentenceResponse
+                               get_random_words_for_sentence, get_random_words_for_match,
+                               get_translation_words, get_sentence_translation)
+from src.quizzes.schemas import RandomWordResponse, RandomSentenceResponse, MatchWordsResponse
 from src.quizzes.utils import add_word_for_translate_to_other_words, shuffle_random_words, delete_punctuation
 from src.schemas import WordInfo, SentenceInfo
 from src.users.query import get_user
@@ -46,7 +46,8 @@ class WordService:
             translation_words_list = [{"id": w.translation.id, "name": w.translation.name} for w in words]
             shuffle_random_words(words_list)
             shuffle_random_words(translation_words_list)
-            response = {"words": words_list, "translation_words": translation_words_list}
+            response = MatchWordsResponse(type="match_words", words=[WordInfo(**word) for word in words_list],
+                                          translation_words=[WordInfo(**word) for word in translation_words_list])
             return response
 
 
@@ -81,10 +82,10 @@ class SentenceService:
         async with self.session as session:
             user = await get_user(session, telegram_id)
             language_to_id = user.learning_language_to_id
-            random_sentence_for_translate = await get_random_sentence_for_translate(session, language_to_id,
+            random_sentence_for_translate = await get_random_sentence_for_translate(session,
                                                                                     user.learning_language_from_id)
 
-            words_for_sentence = delete_punctuation(random_sentence_for_translate.name).split()
+            words_for_sentence = delete_punctuation(random_sentence_for_translate.translation.name).split()
             random_words_for_sentence = await get_random_words_for_sentence(session, language_to_id, words_for_sentence)
 
             words_for_sentence.extend(random_words_for_sentence)
@@ -92,10 +93,7 @@ class SentenceService:
 
             response = RandomSentenceResponse(
                 type="random_sentence",
-                sentence_for_translate=SentenceInfo(
-                    id=random_sentence_for_translate.id,
-                    name=random_sentence_for_translate.translation.name
-                ),
+                sentence_for_translate=SentenceInfo(**random_sentence_for_translate.__dict__),
                 words_for_sentence=words_for_sentence
             )
             return response
@@ -112,5 +110,5 @@ class AnswerService:
 
     async def check_sentence_answer(self, sentence_id: uuid.UUID, user_words: list[str] = Query(...), ):
         async with self.session as session:
-            sentence = await get_sentence(session, sentence_id)
+            sentence = await get_sentence_translation(session, sentence_id)
             return delete_punctuation(sentence.name).lower() == " ".join(user_words).lower()

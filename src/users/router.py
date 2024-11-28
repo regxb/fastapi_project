@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Sequence, List
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +19,7 @@ async def create_user(user_data: UserCreate, session: AsyncSession = Depends(get
     return await user.create_user(user_data)
 
 
-@router.get("", response_model=Sequence[UserInfo])
+@router.get("", response_model=List[UserInfo])
 async def get_users_list(session: AsyncSession = Depends(get_async_session)):
     user = UserService(session)
     return await user.get_users_list()

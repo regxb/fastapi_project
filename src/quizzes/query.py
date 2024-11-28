@@ -63,12 +63,17 @@ async def get_sentence(session: AsyncSession, sentence_id):
     return sentence
 
 
-async def get_random_sentence_for_translate(session: AsyncSession, language_from_id, language_to_id):
+async def get_sentence_translation(session: AsyncSession, sentence_id: uuid.UUID):
+    query = select(TranslationSentence).where(TranslationSentence.sentence_id == sentence_id)
+    translation = await session.scalar(query)
+    return translation
+
+
+async def get_random_sentence_for_translate(session: AsyncSession, language_from_id):
     query = (select(Sentence)
              .join(Sentence.translation)
              .options(joinedload(Sentence.translation))
-             .where(and_(Sentence.language_id == language_from_id,
-                         TranslationSentence.to_language_id == language_to_id))
+             .where(Sentence.language_id == language_from_id)
              .order_by(func.random())
              .limit(1))
     random_sentence_for_translate = await session.scalar(query)

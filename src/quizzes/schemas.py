@@ -1,6 +1,6 @@
 from typing import List
 
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel, UUID4, ConfigDict
 
 from src.schemas import WordInfo, SentenceInfo
 
@@ -21,3 +21,9 @@ class RandomSentenceResponse(BaseModel):
     type: str
     sentence_for_translate: SentenceInfo
     words_for_sentence: List[str]
+
+
+class MatchWordsResponse(BaseModel):
+    type: str
+    words: List[WordInfo]
+    translation_words: List[WordInfo]
