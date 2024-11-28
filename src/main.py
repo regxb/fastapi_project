@@ -4,8 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.exams.router import router as exams_router
 from src.users.router import router as users_router
-from src.quizzes.router import router as words_router
+from src.quizzes.router import router as quizzes_router
 from src.competitions.router import router as competitions_router
+from src.words.router import router as words_router
 
 app = FastAPI(docs_url=None, title='Learn API')
 
@@ -19,6 +20,7 @@ app.add_middleware(
 
 app.include_router(users_router)
 app.include_router(words_router)
+app.include_router(quizzes_router)
 app.include_router(exams_router)
 app.include_router(competitions_router)
 

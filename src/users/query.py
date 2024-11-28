@@ -1,4 +1,6 @@
 from typing import Sequence
+
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +10,8 @@ from src.models import User
 async def get_user(session: AsyncSession, telegram_id: int) -> User:
     query = select(User).where(User.telegram_id == telegram_id)
     user = await session.scalar(query)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
     return user
 
 

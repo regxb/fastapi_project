@@ -1,18 +1,14 @@
 import uuid
 
-from fastapi import HTTPException, Query
+from fastapi import Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.constants import AvailableLanguages
-from src.models import Word
-from src.quizzes.constants import AvailablePartOfSpeech, AvailableWordLevel
-from src.quizzes.query import get_random_word_for_translate, get_random_words, get_user_favorite_words, \
-    get_user_favorite_word, get_random_user_favorite_word, get_random_sentence_for_translate, \
-    get_random_words_for_sentence, get_sentence, get_random_words_for_match, get_translation_words, get_language_to, \
-    get_language_from
-from src.quizzes.schemas import RandomWordResponse, UserFavoriteWord, RandomSentenceResponse
-from src.quizzes.utils import add_word_for_translate_to_other_words, shuffle_random_words, delete_punctuation, \
-    create_word_with_translation, create_new_sentence_with_translation, add_word_to_favorite, delete_word_from_favorite
+from src.quizzes.query import (get_random_word_for_translate, get_random_words, get_user_favorite_words,
+                               get_random_user_favorite_word, get_random_sentence_for_translate,
+                               get_random_words_for_sentence, get_sentence, get_random_words_for_match,
+                               get_translation_words)
+from src.quizzes.schemas import RandomWordResponse, RandomSentenceResponse
+from src.quizzes.utils import add_word_for_translate_to_other_words, shuffle_random_words, delete_punctuation
 from src.schemas import WordInfo, SentenceInfo
 from src.users.query import get_user
 
@@ -20,25 +16,6 @@ from src.users.query import get_user
 class WordService:
     def __init__(self, session: AsyncSession):
         self.session = session
-
-    async def add_word(
-            self,
-            language_from: AvailableLanguages,
-            word_to_translate: str,
-            language_to: AvailableLanguages,
-            translation_word: str,
-            part_of_speech: AvailablePartOfSpeech,
-            level: AvailableWordLevel
-    ):
-        async with self.session as session:
-            language_to = await get_language_to(session, language_to)
-            language_from = await get_language_from(session, language_from)
-
-            result = await create_word_with_translation(self.session, language_from.id, word_to_translate,
-                                                        language_to.id, translation_word, part_of_speech.name,
-                                                        level.name)
-
-            return result
 
     async def get_random_word(
             self,
@@ -55,8 +32,8 @@ class WordService:
 
             response = RandomWordResponse(
                 type="random_word",
-                word_for_translate=WordInfo(name=word_for_translate.name, id=word_for_translate.id),
-                other_words=[WordInfo(name=w.name, id=w.id) for w in other_words],
+                word_for_translate=WordInfo(**word_for_translate.__dict__),
+                other_words=[WordInfo(**word.__dict__) for word in other_words],
                 in_favorite=False if in_favorite is None else True
             )
             return response
@@ -77,48 +54,20 @@ class FavoriteWordService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def add_favorite_word(self, data: UserFavoriteWord):
-        async with self.session as session:
-            user = await get_user(session, data.telegram_id)
-            word = await session.get(Word, data.word_id)
-            new_favorite_word_is_exists = await get_user_favorite_words(session, word.id, user.id)
-
-            if user is None:
-                raise HTTPException(status_code=404, detail="Пользователь не найден")
-            if word is None:
-                raise HTTPException(status_code=404, detail="Слово не найдено")
-            if new_favorite_word_is_exists:
-                raise HTTPException(status_code=201, detail="Данное слово уже добавлено пользователем")
-
-            result = await add_word_to_favorite(session, user.id, word.id)
-            return result
-
-    async def delete_favorite_word(self, data: UserFavoriteWord):
-        async with self.session as session:
-
-            user_favorite_word = await get_user_favorite_word(session, data.telegram_id, data.word_id)
-
-            if user_favorite_word is None:
-                raise HTTPException(status_code=404, detail="Пользователь не добавлял это слово в избранное")
-
-            result = await delete_word_from_favorite(session, user_favorite_word)
-            return result
-
     async def get_random_favorite_word(self, telegram_id: int):
         async with self.session as session:
             user = await get_user(session, telegram_id)
             random_user_favorite_word = await get_random_user_favorite_word(session, user.id)
             other_words = await get_random_words(session, user.learning_language_to_id,
-                                                 random_user_favorite_word.word.id)
+                                                 random_user_favorite_word.id)
 
-            add_word_for_translate_to_other_words(other_words, random_user_favorite_word.word)
+            add_word_for_translate_to_other_words(other_words, random_user_favorite_word)
             shuffle_random_words(other_words)
 
             response = RandomWordResponse(
                 type="random_word",
-                word_for_translate=WordInfo(name=random_user_favorite_word.word.name,
-                                            id=random_user_favorite_word.word_id),
-                other_words=[WordInfo(name=w.name, id=w.id) for w in other_words],
+                word_for_translate=WordInfo(**random_user_favorite_word.__dict__),
+                other_words=[WordInfo(**word.__dict__) for word in other_words],
                 in_favorite=True
             )
             return response
@@ -127,24 +76,6 @@ class FavoriteWordService:
 class SentenceService:
     def __init__(self, session: AsyncSession):
         self.session = session
-
-    async def add_sentence(
-            self,
-            translation_from_language: AvailableLanguages,
-            sentence_to_translate: str,
-            translation_to_language: AvailableLanguages,
-            translation_sentence: str,
-            level: AvailableWordLevel):
-        async with self.session as session:
-            language_to = await get_language_to(session, translation_to_language)
-            language_from = await get_language_from(session, translation_from_language)
-
-            result = await create_new_sentence_with_translation(
-                session, language_from.id,
-                sentence_to_translate, language_to.id,
-                translation_sentence, level.value)
-
-            return result
 
     async def get_random_sentence(self, telegram_id: int):
         async with self.session as session:

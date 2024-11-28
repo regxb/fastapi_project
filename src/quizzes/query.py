@@ -41,7 +41,7 @@ async def get_random_user_favorite_word(session: AsyncSession, user_id: int):
              .order_by(func.random())
              .limit(1))
     random_user_favorite_word = await session.scalar(query)
-    return random_user_favorite_word
+    return random_user_favorite_word.word
 
 
 async def get_user_favorite_words(session: AsyncSession, word_id: uuid.UUID, user_id: int):

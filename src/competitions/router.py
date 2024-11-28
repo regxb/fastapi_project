@@ -29,25 +29,27 @@ html = """
 <!DOCTYPE html>
 <html>
     <head>
-        <title>ws</title>
+        <title>WebSocket Example</title>
     </head>
     <body>
+        <h1>WebSocket Test</h1>
         <p id="server-message">No messages yet</p>
         <script>
-            const telegram_id = 1;
-            const ws = new WebSocket(`ws://localhost:8000/competitions/ws/${telegram_id}`);
+            const ws = new WebSocket("ws://localhost:1234/competitions/ws");
 
             ws.onmessage = function(event) {
                 document.getElementById("server-message").textContent = "Message from server: " + event.data;
             };
 
+            ws.onopen = function() {
+                ws.send("hello!");
+            };
         </script>
     </body>
 </html>
-
 """
 
-active_connections = {}
+active_connections = []
 
 
 @router.get("/")
@@ -55,18 +57,16 @@ async def get():
     return HTMLResponse(html)
 
 
-@router.websocket("/ws/{room_id}/{telegram_id}")
-async def websocket_endpoint(websocket: WebSocket, telegram_id: int):
+@router.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    connection_id = telegram_id
-    active_connections[connection_id] = websocket
-    print(active_connections)
+    active_connections.append(websocket)
     try:
         while True:
             data = await websocket.receive_text()
             print(data)
     except WebSocketDisconnect:
-        del active_connections[connection_id]
+        active_connections.remove(websocket)
         print("Disconnected")
 
 
@@ -106,6 +106,7 @@ async def join_room(room_data: CompetitionStatisticsSchema, session: AsyncSessio
 
 @router.get("/start")
 async def start(telegram_id: int, room_id: int, session: AsyncSession = Depends(get_async_session)):
+    print(active_connections)
     query = select(Competitions).where(Competitions.id == room_id)
     competition_room = await session.scalar(query)
     if competition_room.status == "awaiting":
@@ -119,7 +120,7 @@ async def start(telegram_id: int, room_id: int, session: AsyncSession = Depends(
     response = {"word_for_translate": {"name": word_for_translate.name, "id": str(word_for_translate.id)},
                 "other_words": [{"name": w.name, "id": str(w.id)} for w in other_words]}
     for connection in active_connections:
-        await active_connections[connection].send_text(json.dumps(response))
+        await connection.send_text(json.dumps(response))
 
 
 @router.patch("/check_answer")
