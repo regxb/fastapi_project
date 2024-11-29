@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
 
-class CompetitionStatisticsSchema(BaseModel):
+class CompetitionRoomSchema(BaseModel):
     telegram_id: int
     room_id: int
