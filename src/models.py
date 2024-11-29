@@ -22,7 +22,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     favorite_word: Mapped["FavoriteWord"] = relationship(back_populates="user")
-    competition_statistics: Mapped["CompetitionStatistics"] = relationship(back_populates="user")
+    competition_room_data: Mapped["CompetitionRoomData"] = relationship(back_populates="user")
 
 
 class Sentence(Base):

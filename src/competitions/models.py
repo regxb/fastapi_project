@@ -13,16 +13,17 @@ class Competitions(Base):
     status: Mapped[str] = mapped_column(default="awaiting")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
-    competition_statistics: Mapped["CompetitionStatistics"] = relationship(back_populates="competition")
+    competition_room_data: Mapped["CompetitionRoomData"] = relationship(back_populates="competition")
 
 
-class CompetitionStatistics(Base):
-    __tablename__ = "competition_statistics"
+class CompetitionRoomData(Base):
+    __tablename__ = "competition_room_data"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     competition_id: Mapped[int] = mapped_column(ForeignKey("competitions.id"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user_points: Mapped[int] = mapped_column(default=0)
+    user_status: Mapped[str] = mapped_column(default="offline")
 
-    competition: Mapped["Competitions"] = relationship(back_populates="competition_statistics")
-    user: Mapped["User"] = relationship(back_populates="competition_statistics")
+    competition: Mapped["Competitions"] = relationship(back_populates="competition_room_data")
+    user: Mapped["User"] = relationship(back_populates="competition_room_data")
