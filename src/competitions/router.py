@@ -11,7 +11,7 @@ from starlette.responses import HTMLResponse
 from starlette.websockets import WebSocketDisconnect
 
 from src import CompetitionRoomData, Competitions
-from src.competitions.schemas import CompetitionRoomSchema
+from src.competitions.schemas import CompetitionRoomSchema, CompetitionAnswerSchema
 from src.database import get_async_session
 from src.models import User
 from src.quizzes.query import get_random_word_for_translate, get_random_words
@@ -70,6 +70,7 @@ async def websocket_endpoint(websocket: WebSocket, session: AsyncSession = Depen
             if telegram_id in room_data:
                 room_id = room
         del active_connections[room_id][telegram_id]
+
         user = await get_user(session, telegram_id)
         query = (select(CompetitionRoomData)
                  .where(and_(CompetitionRoomData.competition_id == room_id,
@@ -99,6 +100,7 @@ async def create_room(session: AsyncSession = Depends(get_async_session)):
 
 @router.post("/join-room")
 async def join_room(room_data: CompetitionRoomSchema, session: AsyncSession = Depends(get_async_session)):
+    telegram_id, room_id = room_data.__dict__.values()
     user = await get_user(session, room_data.telegram_id)
     query = (select(CompetitionRoomData)
              .where(and_(CompetitionRoomData.competition_id == room_data.room_id,
@@ -120,8 +122,6 @@ async def join_room(room_data: CompetitionRoomSchema, session: AsyncSession = De
         except Exception:
             await session.rollback()
             raise HTTPException(status_code=500, detail="Ошибка при подключении в комнату")
-    telegram_id = room_data.telegram_id
-    room_id = room_data.room_id
     if active_connections.get(room_id):
         for ws in active_connections[room_id].values():
             await ws.send_text("Пользователь зашел в комнату")
@@ -135,8 +135,7 @@ async def join_room(room_data: CompetitionRoomSchema, session: AsyncSession = De
 
 @router.patch("/leave-room")
 async def leave_room(room_data: CompetitionRoomSchema, session: AsyncSession = Depends(get_async_session)):
-    telegram_id = room_data.telegram_id
-    room_id = room_data.room_id
+    telegram_id, room_id = room_data.__dict__.values()
     user = await get_user(session, telegram_id)
     query = (select(CompetitionRoomData)
              .where(and_(CompetitionRoomData.competition_id == room_id,
@@ -177,23 +176,20 @@ async def start(telegram_id: int, room_id: int, session: AsyncSession = Depends(
 
 @router.patch("/check_answer")
 async def check_competition_answer(
-        word_for_translate_id: uuid.UUID,
-        user_word_id: uuid.UUID,
-        telegram_id: int,
-        room_id: int,
+        answer_data: CompetitionAnswerSchema,
         session: AsyncSession = Depends(get_async_session)
 ):
-    user = await get_user(session, telegram_id)
+    user = await get_user(session, answer_data.telegram_id)
     answer_service = AnswerService(session)
-    result = await answer_service.check_answer(word_for_translate_id, user_word_id)
-    await update_competition_statistics(user, room_id, result, session)
+    result = await answer_service.check_answer(answer_data.word_for_translate_id, answer_data.user_word_id)
+    await update_competition_statistics(user, answer_data.room_id, result, session)
     query = (select(CompetitionRoomData)
              .options(joinedload(CompetitionRoomData.user))
-             .where(CompetitionRoomData.competition_id == room_id))
+             .where(CompetitionRoomData.competition_id == answer_data.room_id))
     result = await session.execute(query)
     users_stats = result.scalars().all()
     response = [{"user": {"telegram_id": user.user.telegram_id, "points": user.user_points}} for user in users_stats]
-    for connection in active_connections[room_id].values():
+    for connection in active_connections[answer_data.room_id].values():
         await connection.send_text(json.dumps(response))
 
 
