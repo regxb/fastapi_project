@@ -7,7 +7,7 @@ from src.quizzes.constants import AvailablePartOfSpeech, AvailableWordLevel
 from src.quizzes.query import get_language_to, get_language_from, get_user_favorite_words, get_user_favorite_word
 from src.quizzes.schemas import UserFavoriteWord
 from src.users.query import get_user
-from src.utils import commit_changes
+from src.utils import commit_changes_or_rollback
 
 
 class WordManagementService:
@@ -45,7 +45,7 @@ class WordManagementService:
                 word_id=new_word.id
             )
             session.add(new_translation_word)
-            await commit_changes(session, "Ошибка при добавлении слова")
+            await commit_changes_or_rollback(session, "Ошибка при добавлении слова")
             return {"message": "Слово успешно добавлено"}
 
 
@@ -70,7 +70,7 @@ class FavoriteWordManagementService:
                 word_id=word.id
             )
             session.add(new_favorite_word)
-            await commit_changes(session, "Ошибка при добавлении слова в избранное")
+            await commit_changes_or_rollback(session, "Ошибка при добавлении слова в избранное")
             return {"message": "Слово успешно добавлено в избранное"}
 
     async def delete_favorite_word(self, data: UserFavoriteWord):
@@ -81,7 +81,7 @@ class FavoriteWordManagementService:
                 raise HTTPException(status_code=404, detail="Пользователь не добавлял это слово в избранное")
 
             await session.delete(user_favorite_word)
-            await commit_changes(session, "Ошибка при удалении слова из избранного")
+            await commit_changes_or_rollback(session, "Ошибка при удалении слова из избранного")
             return {"message": "Слово было удалено"}
 
 
@@ -117,5 +117,5 @@ class SentenceManagementService:
                 to_language_id=language_to.id,
             )
             session.add(new_translation_sentence)
-            await commit_changes(session, "Ошибка при добавлении предложения")
+            await commit_changes_or_rollback(session, "Ошибка при добавлении предложения")
             return {"message": "Предложение успешно добавлено"}
