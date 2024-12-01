@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.exams.query import get_user_exam
 from src.exams.schemas import ExamSchema, ExamAnswerResponse
 from src.exams.utils import update_user_progress, get_random_exercise, create_exam
-from src.models import  TranslationWord
-from src.quizzes.query import get_sentence
+from src.models import TranslationWord
+from src.quizzes.query import get_sentence_translation
 from src.quizzes.service import WordService, SentenceService
 from src.quizzes.utils import delete_punctuation
 from src.users.query import get_user
@@ -49,7 +49,7 @@ class ExamService:
         async with self.session as session:
             user = await get_user(session, telegram_id)
             user_exam = await get_user_exam(session, user.id)
-            sentence = await get_sentence(session, sentence_id)
+            sentence = await get_sentence_translation(session, sentence_id)
             result = delete_punctuation(sentence.name).lower() == " ".join(user_words).lower()
             response = await update_user_progress(result, user_exam, user, session)
             return response
