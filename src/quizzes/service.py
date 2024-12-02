@@ -1,4 +1,5 @@
 import uuid
+from typing import List, Dict
 
 from fastapi import Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,21 +23,21 @@ class WordService:
             telegram_id: int) -> RandomWordResponse:
         async with self.session as session:
             user = await get_user(session, telegram_id)
-            word_for_translate = await get_random_word_for_translate(session, user.learning_language_from_id)
-            other_words = await get_random_words(session, user.learning_language_to_id, word_for_translate.id)
-
-            add_word_for_translate_to_other_words(other_words, word_for_translate)
-            shuffle_random_words(other_words)
-
+            words = await self.get_random_words(user.learning_language_from_id, user.learning_language_to_id)
+            word_for_translate = words["word_for_translate"]
             in_favorite = await get_user_favorite_words(session, word_for_translate.id, user.id)
-
-            response = RandomWordResponse(
-                type="random_word",
-                word_for_translate=WordInfo(**word_for_translate.__dict__),
-                other_words=[WordInfo(**word.__dict__) for word in other_words],
-                in_favorite=False if in_favorite is None else True
-            )
+            response = ResponseService.create_random_word_response(word_for_translate, words["other_words"],
+                                                                   in_favorite)
             return response
+
+    async def get_random_words(self, language_from_id: int, language_to_id: int) -> dict:
+        async with self.session as session:
+            word_for_translate = await get_random_word_for_translate(session, language_from_id)
+            words = await get_random_words(session, language_to_id, word_for_translate.id)
+
+            add_word_for_translate_to_other_words(words, word_for_translate)
+            shuffle_random_words(words)
+            return {"other_words": words, "word_for_translate": word_for_translate}
 
     async def get_match_words(self, telegram_id: int):
         async with self.session as session:
@@ -46,8 +47,8 @@ class WordService:
             translation_words_list = [{"id": w.translation.id, "name": w.translation.name} for w in words]
             shuffle_random_words(words_list)
             shuffle_random_words(translation_words_list)
-            response = MatchWordsResponse(type="match_words", words=[WordInfo(**word) for word in words_list],
-                                          translation_words=[WordInfo(**word) for word in translation_words_list])
+
+            response = ResponseService.create_match_words_response(words_list, translation_words_list)
             return response
 
 
@@ -65,12 +66,8 @@ class FavoriteWordService:
             add_word_for_translate_to_other_words(other_words, random_user_favorite_word)
             shuffle_random_words(other_words)
 
-            response = RandomWordResponse(
-                type="random_word",
-                word_for_translate=WordInfo(**random_user_favorite_word.__dict__),
-                other_words=[WordInfo(**word.__dict__) for word in other_words],
-                in_favorite=True
-            )
+            response = ResponseService.create_random_word_response(random_user_favorite_word, other_words,
+                                                                   in_favorite=True)
             return response
 
 
@@ -91,11 +88,8 @@ class SentenceService:
             words_for_sentence.extend(random_words_for_sentence)
             shuffle_random_words(words_for_sentence)
 
-            response = RandomSentenceResponse(
-                type="random_sentence",
-                sentence_for_translate=SentenceInfo(**random_sentence_for_translate.__dict__),
-                words_for_sentence=words_for_sentence
-            )
+            response = ResponseService.create_random_sentence_response(random_sentence_for_translate,
+                                                                       words_for_sentence)
             return response
 
 
@@ -112,3 +106,32 @@ class AnswerService:
         async with self.session as session:
             sentence = await get_sentence_translation(session, sentence_id)
             return delete_punctuation(sentence.name).lower() == " ".join(user_words).lower()
+
+
+class ResponseService:
+
+    @staticmethod
+    def create_random_word_response(word_for_translate: WordInfo, words: List[WordInfo],
+                                    in_favorite: bool = None) -> RandomWordResponse:
+        response = RandomWordResponse(
+            type="random_word",
+            word_for_translate=WordInfo(**word_for_translate.__dict__),
+            other_words=[WordInfo(**word.__dict__) for word in words],
+            in_favorite=True if in_favorite else False
+        )
+        return response
+
+    @staticmethod
+    def create_random_sentence_response(random_sentence_for_translate: SentenceInfo, words_for_sentence: List[str]) -> RandomSentenceResponse:
+        response = RandomSentenceResponse(
+            type="random_sentence",
+            sentence_for_translate=SentenceInfo(**random_sentence_for_translate.__dict__),
+            words_for_sentence=words_for_sentence
+        )
+        return response
+
+    @staticmethod
+    def create_match_words_response(words_list: List[dict], translation_words_list: List[dict]) -> MatchWordsResponse:
+        response = MatchWordsResponse(type="match_words", words=[WordInfo(**word) for word in words_list],
+                                      translation_words=[WordInfo(**word) for word in translation_words_list])
+        return response
