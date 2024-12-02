@@ -4,7 +4,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocketDisconnect
 
-from src.competitions.schemas import CompetitionRoomSchema, CompetitionAnswerSchema
+from src.competitions.schemas import CompetitionRoomSchema, CompetitionAnswerSchema, CompetitionsSchema
 from src.competitions.service import WebSocketManager, RoomService, CompetitionService
 from src.database import get_async_session
 from fastapi.websockets import WebSocket
@@ -25,21 +25,20 @@ async def websocket_endpoint(websocket: WebSocket, session: AsyncSession = Depen
         while True:
             data = await websocket.receive_json()
             await websocket_manager.add_connection(data["telegram_id"], websocket)
-            print(websocket_manager.active_connections)
     except WebSocketDisconnect:
         await websocket_manager.remove_connections(data["telegram_id"], session)
-        print(websocket_manager.active_connections)
 
 
 @router.get("/rooms")
 async def get_rooms(session: AsyncSession = Depends(get_async_session)):
-    return await get_rooms
+    room_service = RoomService(session, websocket_manager)
+    return await room_service.get_rooms_list()
 
 
 @router.post("/create-room")
-async def create_room(session: AsyncSession = Depends(get_async_session)):
+async def create_room(room_data: CompetitionsSchema, session: AsyncSession = Depends(get_async_session)):
     room_service = RoomService(session, websocket_manager)
-    return await room_service.create_room()
+    return await room_service.create_room(room_data)
 
 
 @router.post("/join-room")
@@ -55,9 +54,9 @@ async def leave_room(room_data: CompetitionRoomSchema, session: AsyncSession = D
 
 
 @router.get("/start")
-async def start(telegram_id: int, room_id: int, session: AsyncSession = Depends(get_async_session)):
+async def start(room_id: int, session: AsyncSession = Depends(get_async_session)):
     competition_service = CompetitionService(session, websocket_manager)
-    await competition_service.start(telegram_id, room_id)
+    await competition_service.start(room_id)
 
 
 @router.patch("/check_answer")

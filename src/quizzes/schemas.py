@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, UUID4, ConfigDict
 
@@ -14,7 +14,7 @@ class RandomWordResponse(BaseModel):
     type: str
     word_for_translate: WordInfo
     other_words: List[WordInfo]
-    in_favorite: bool
+    in_favorite: Optional[bool]
 
 
 class RandomSentenceResponse(BaseModel):

@@ -12,7 +12,8 @@ from src.constants import AvailableLanguages
 
 
 async def get_translation_words(session: AsyncSession, word_id: uuid.UUID) -> Optional[TranslationWord]:
-    word = await session.get(TranslationWord, word_id)
+    query = select(TranslationWord).where(TranslationWord.word_id == word_id)
+    word = await session.scalar(query)
     return word
 
 
