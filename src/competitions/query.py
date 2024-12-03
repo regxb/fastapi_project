@@ -7,9 +7,14 @@ from sqlalchemy.orm import joinedload
 from .models import CompetitionRoom, CompetitionRoomData
 
 
+async def get_room_data(room_id: int, session: AsyncSession):
+    query = select(CompetitionRoom).where(CompetitionRoom.id == room_id)
+    result = await session.scalar(query)
+    return result
+
+
 async def get_user_room_data(room_id: int, user_id: int, session: AsyncSession) -> CompetitionRoomData:
     query = (select(CompetitionRoomData)
-             .options(joinedload(CompetitionRoomData.competition))
              .where(and_(CompetitionRoomData.competition_id == room_id,
                          CompetitionRoomData.user_id == user_id)))
     user_room_data = await session.scalar(query)
