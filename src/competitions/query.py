@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Sequence, List
 
 from sqlalchemy import select, and_, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,15 @@ async def get_room_data(room_id: int, session: AsyncSession):
     query = select(CompetitionRoom).where(CompetitionRoom.id == room_id)
     result = await session.scalar(query)
     return result
+
+
+async def get_user_rooms_data(user_id: int, session: AsyncSession) -> Sequence[CompetitionRoomData]:
+    query = (select(CompetitionRoomData)
+             .where(and_(CompetitionRoomData.user_status == "online",
+                         CompetitionRoomData.user_id == user_id)))
+    result = await session.execute(query)
+    user_room_data = result.scalars().all()
+    return user_room_data
 
 
 async def get_user_room_data(room_id: int, user_id: int, session: AsyncSession) -> CompetitionRoomData:
