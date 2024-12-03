@@ -9,6 +9,7 @@ from .models import CompetitionRoom, CompetitionRoomData
 
 async def get_user_room_data(room_id: int, user_id: int, session: AsyncSession) -> CompetitionRoomData:
     query = (select(CompetitionRoomData)
+             .options(joinedload(CompetitionRoomData.competition))
              .where(and_(CompetitionRoomData.competition_id == room_id,
                          CompetitionRoomData.user_id == user_id)))
     user_room_data = await session.scalar(query)

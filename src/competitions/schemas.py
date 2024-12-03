@@ -23,12 +23,14 @@ class CompetitionsSchema(BaseModel):
 
 
 class AnsweredUsersSchema(BaseModel):
-    telegram_id: int
+    username: str
+    user_photo_url: str
     success: bool
 
 
 class UserStatsSchema(BaseModel):
-    telegram_id: int
+    username: str
+    user_photo_url: str
     points: int
 
 
