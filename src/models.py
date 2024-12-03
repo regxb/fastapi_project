@@ -16,6 +16,8 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     telegram_id: Mapped[int]
+    photo_url: Mapped[str] = mapped_column(default="https://i1.sndcdn.com/artworks-000650542942-hkw8sb-t1080x1080.jpg", nullable=True)
+    username: Mapped[str] = mapped_column(default="username", nullable=True)
     learning_language_from_id: Mapped[int] = mapped_column(ForeignKey("languages.id"))
     learning_language_to_id: Mapped[int] = mapped_column(ForeignKey("languages.id"))
     rating: Mapped[str] = mapped_column(default="A1")
