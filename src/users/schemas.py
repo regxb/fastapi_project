@@ -45,5 +45,7 @@ class UserInfo(BaseModel):
     created_at: datetime
 
 
-class UserUpdate(UserCreate):
-    ...
+class UserUpdate(BaseModel):
+    telegram_id: int
+    learning_language_from_id: int
+    learning_language_to_id: int
