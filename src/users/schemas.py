@@ -9,6 +9,8 @@ class UserCreate(BaseModel):
     telegram_id: int
     learning_language_from_id: int
     learning_language_to_id: int
+    photo_url: str
+    username: str
 
     @field_validator("learning_language_to_id")
     def check_language_to_exists(cls, learning_language_to_id):
@@ -35,6 +37,8 @@ class UserCreate(BaseModel):
 class UserInfo(BaseModel):
     id: int
     telegram_id: int
+    photo_url: str
+    username: str
     rating: str
     learning_language_from_id: int
     learning_language_to_id: int

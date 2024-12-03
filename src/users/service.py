@@ -17,9 +17,8 @@ class UserService:
             if user:
                 raise HTTPException(status_code=203, detail="Пользователь уже зарегистрирован")
 
-            result = await create_new_user(session, user_data.telegram_id, user_data.learning_language_from_id,
-                                           user_data.learning_language_to_id)
-            return result
+            result = await create_new_user(session, user_data)
+            return UserInfo(**result)
 
     async def change_user_language(self, user_data: UserUpdate):
         async with self.session as session:
