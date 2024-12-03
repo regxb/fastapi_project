@@ -99,8 +99,8 @@ class AnswerService:
 
     async def check_answer(self, word_for_translate_id: uuid.UUID, user_word_id: uuid.UUID):
         async with self.session as session:
-            word = await get_translation_words(session, user_word_id)
-            return word_for_translate_id == word.word_id
+            word = await get_translation_words(session, word_for_translate_id)
+            return user_word_id == word.id
 
     async def check_sentence_answer(self, sentence_id: uuid.UUID, user_words: list[str] = Query(...), ):
         async with self.session as session:
