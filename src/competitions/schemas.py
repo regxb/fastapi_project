@@ -3,6 +3,8 @@ from typing import List
 
 from pydantic import BaseModel
 
+from src.quizzes.schemas import RandomWordResponse
+
 
 class CompetitionRoomSchema(BaseModel):
     telegram_id: int
@@ -35,7 +37,9 @@ class UserStatsSchema(BaseModel):
 
 
 class CompetitionsAnswersSchema(BaseModel):
+    type: str
     answered_user: AnsweredUsersSchema
     selected_word_id: uuid.UUID
     correct_word_id: uuid.UUID
     users: List[UserStatsSchema]
+    new_question: RandomWordResponse

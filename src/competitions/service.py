@@ -1,5 +1,6 @@
 import json
 import uuid
+
 import redis.asyncio as redis
 from typing import Sequence
 
@@ -7,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.websockets import WebSocket
 
 from .models import CompetitionRoom, CompetitionRoomData
-from .query import get_user_room_data, get_competition, get_users_stats, get_rooms, get_users_count_in_room
+from .query import get_user_room_data, get_competition, get_users_stats, get_rooms, get_users_count_in_room, \
+    get_room_data
 from .schemas import CompetitionRoomSchema, CompetitionAnswerSchema, CompetitionsSchema, CompetitionsAnswersSchema
 from ..models import User
 from ..quizzes.query import get_translation_words
@@ -33,15 +35,6 @@ class WebSocketManager:
             await self.redis.hdel("user_room_map", telegram_id)
         await self.redis.srem("non_room", telegram_id)
 
-    async def room_broadcast_message(self, room_id: int, message: str) -> None:
-        telegram_ids = await self.redis.smembers(f"room:{room_id}")
-
-        for telegram_id in telegram_ids:
-            telegram_id = int(telegram_id)
-            websocket = self.websockets.get(telegram_id)
-            if websocket:
-                await websocket.send_text(message)
-
     async def add_websocket_to_room(self, room_id: int, telegram_id: int) -> None:
         await self.redis.srem("non_room", telegram_id)
         await self.redis.sadd(f"room:{room_id}", telegram_id)
@@ -51,6 +44,15 @@ class WebSocketManager:
         await self.redis.srem(f"room:{room_id}", telegram_id)
         await self.redis.hdel("user_room_map", telegram_id)
         await self.redis.sadd("non_room", telegram_id)
+
+    async def room_broadcast_message(self, room_id: int, message: str) -> None:
+        telegram_ids = await self.redis.smembers(f"room:{room_id}")
+
+        for telegram_id in telegram_ids:
+            telegram_id = int(telegram_id)
+            websocket = self.websockets.get(telegram_id)
+            if websocket:
+                await websocket.send_text(message)
 
     async def notify_all_users(self, message: str) -> None:
         for websocket in self.websockets.values():
@@ -72,7 +74,7 @@ class RoomService:
         self.session.add(new_competitions)
         await commit_changes_or_rollback(self.session, "Ошибка при создании комнаты")
         await self.websocket_manager.notify_all_users(json.dumps({
-            "action": "created_new_room",
+            "type": "created_new_room",
             "room_data": {
                 "room_id": new_competitions.id, "owner": user.username,
                 "language_from_id": new_competitions.language_from_id,
@@ -81,6 +83,7 @@ class RoomService:
     async def update_user_room_data(self, room_data: CompetitionRoomSchema, action: str):
         telegram_id, room_id = room_data.telegram_id, room_data.room_id
         user = await get_user(self.session, telegram_id)
+        room_data = await get_room_data(room_id, self.session)
         user_room_data = await get_user_room_data(room_id, user.id, self.session)
 
         if action == "join":
@@ -88,15 +91,15 @@ class RoomService:
             users_count = await get_users_count_in_room(room_id, self.session)
             await self.websocket_manager.add_websocket_to_room(room_id, telegram_id)
             await self.websocket_manager.room_broadcast_message(room_id, json.dumps({
-                "action": "join", "room_id": room_id, "username": user.username,
-                "status_room": user_room_data.competition.status, "users_count": users_count
+                "type": "user_join", "room_id": room_id, "username": user.username,
+                "status_room": room_data.status, "users_count": users_count
             }))
         elif action == "leave":
             await self.disconnect_user_from_room(user_room_data)
             users_count = await get_users_count_in_room(room_id, self.session)
             await self.websocket_manager.room_broadcast_message(room_id, json.dumps({
-                "action": "leave", "room_id": room_id, "username": user.username,
-                "status_room": user_room_data.competition.status, "users_count": users_count
+                "type": "user_leave", "room_id": room_id, "username": user.username,
+                "status_room": room_data.status, "users_count": users_count
             }))
             await self.websocket_manager.remove_websocket_from_room(room_id, telegram_id)
 
@@ -137,12 +140,17 @@ class CompetitionService:
     async def start(self, room_id: int):
         await RoomService.update_room_status(room_id, self.session)
         room_data = await get_competition(room_id, self.session)
-        word_service = WordService(self.session)
+        response = await CompetitionService.prepare_competition_words(room_data, self.session)
+
+        await self.websocket_manager.room_broadcast_message(room_id, response.json())
+
+    @staticmethod
+    async def prepare_competition_words(room_data: CompetitionRoom, session: AsyncSession):
+        word_service = WordService(session)
         random_words = await word_service.get_random_words(room_data.language_from_id, room_data.language_to_id)
         response = ResponseService.create_random_word_response(random_words["word_for_translate"],
                                                                random_words["other_words"])
-
-        await self.websocket_manager.room_broadcast_message(room_id, response.json())
+        return response
 
     async def check_competition_answer(self, answer_data: CompetitionAnswerSchema):
         word_id = answer_data.word_for_translate_id
@@ -152,8 +160,9 @@ class CompetitionService:
         await self.update_competition_statistics(user, answer_data.room_id, result)
         users_stats = await get_users_stats(answer_data.room_id, self.session)
 
-        response = ResponseCompetitionsService.create_competition_answer_response(answer_data, user, result,
-                                                                                  translation_word.id, users_stats)
+        response = await ResponseCompetitionsService.create_competition_answer_response(answer_data, user, result,
+                                                                                        translation_word.id,
+                                                                                        users_stats, self.session)
         await self.websocket_manager.room_broadcast_message(answer_data.room_id, response.json())
 
     async def update_competition_statistics(self, user: User, room_id: int, result: bool):
@@ -165,13 +174,17 @@ class CompetitionService:
 class ResponseCompetitionsService:
 
     @staticmethod
-    def create_competition_answer_response(answer_data: CompetitionAnswerSchema, user: User, result: bool,
-                                           translation_word_id: uuid.UUID, users_stats: Sequence[CompetitionRoomData]):
-        response_data = {"answered_user": {
+    async def create_competition_answer_response(answer_data: CompetitionAnswerSchema, user: User, result: bool,
+                                                 translation_word_id: uuid.UUID,
+                                                 users_stats: Sequence[CompetitionRoomData],
+                                                 session: AsyncSession):
+        room_data = await get_room_data(answer_data.room_id, session)
+        response_data = {"type": "check_competition_answer", "answered_user": {
             "username": user.username, "user_photo_url": user.photo_url, "success": result},
-            "selected_word_id": str(answer_data.user_word_id),
-            "correct_word_id": str(translation_word_id),
-            "users": [{"username": user.user.username, "user_photo_url": user.user.photo_url,
-                       "points": user.user_points} for user in users_stats]}
+                         "selected_word_id": str(answer_data.user_word_id),
+                         "correct_word_id": str(translation_word_id),
+                         "users": [{"username": user.user.username, "user_photo_url": user.user.photo_url,
+                                    "points": user.user_points} for user in users_stats],
+                         "new_question": await CompetitionService.prepare_competition_words(room_data, session)}
         response = CompetitionsAnswersSchema(**response_data)
         return response
