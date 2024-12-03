@@ -19,14 +19,15 @@ websocket_manager = WebSocketManager()
 
 
 @router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, session: AsyncSession = Depends(get_async_session)):
     await websocket.accept()
     try:
         while True:
             data = await websocket.receive_json()
             await websocket_manager.add_connection(data["telegram_id"], websocket)
     except WebSocketDisconnect:
-        await websocket_manager.remove_connections(data["telegram_id"])
+        await websocket_manager.remove_connections(data["telegram_id"], session)
+
 
 
 @router.get("/rooms")

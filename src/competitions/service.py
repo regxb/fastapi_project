@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.websockets import WebSocket
 
 from .models import CompetitionRoom, CompetitionRoomData
-from .query import get_user_room_data, get_competition, get_users_stats, get_rooms, get_users_count_in_room, \
-    get_room_data
+from .query import get_user_rooms_data, get_competition, get_users_stats, get_rooms, get_users_count_in_room, \
+    get_room_data, get_user_room_data
 from .schemas import CompetitionRoomSchema, CompetitionAnswerSchema, CompetitionsSchema, CompetitionsAnswersSchema
 from ..models import User
 from ..quizzes.query import get_translation_words
@@ -27,13 +27,14 @@ class WebSocketManager:
         self.websockets[telegram_id] = websocket
         await self.redis.sadd("non_room", telegram_id)
 
-    async def remove_connections(self, telegram_id: int) -> None:
+    async def remove_connections(self, telegram_id: int, session: AsyncSession) -> None:
         self.websockets.pop(telegram_id, None)
         room_id = await self.redis.hget("user_room_map", telegram_id)
         if room_id:
             await self.redis.srem(f"room:{room_id.decode()}", telegram_id)
             await self.redis.hdel("user_room_map", telegram_id)
         await self.redis.srem("non_room", telegram_id)
+        await RoomService.change_user_status(telegram_id,"offline", session)
 
     async def add_websocket_to_room(self, room_id: int, telegram_id: int) -> None:
         await self.redis.srem("non_room", telegram_id)
@@ -90,14 +91,14 @@ class RoomService:
             await self.connect_user_to_room(room_id, user.id, user_room_data)
             users_count = await get_users_count_in_room(room_id, self.session)
             await self.websocket_manager.add_websocket_to_room(room_id, telegram_id)
-            await self.websocket_manager.room_broadcast_message(room_id, json.dumps({
+            await self.websocket_manager.notify_all_users(json.dumps({
                 "type": "user_join", "room_id": room_id, "username": user.username,
                 "status_room": room_data.status, "users_count": users_count
             }))
         elif action == "leave":
             await self.disconnect_user_from_room(user_room_data)
             users_count = await get_users_count_in_room(room_id, self.session)
-            await self.websocket_manager.room_broadcast_message(room_id, json.dumps({
+            await self.websocket_manager.notify_all_users(json.dumps({
                 "type": "user_leave", "room_id": room_id, "username": user.username,
                 "status_room": room_data.status, "users_count": users_count
             }))
@@ -119,8 +120,11 @@ class RoomService:
             await commit_changes_or_rollback(self.session, "Ошибка при подключении в комнату")
 
     @staticmethod
-    async def change_user_status(user_room_data: CompetitionRoomData, status: str, session: AsyncSession) -> None:
-        user_room_data.user_status = status
+    async def change_user_status(telegram_id: int, status: str, session: AsyncSession) -> None:
+        user = await get_user(session, telegram_id)
+        user_rooms_data = await get_user_rooms_data(user.id, session)
+        for room in user_rooms_data:
+            room.user_status = status
         await commit_changes_or_rollback(session, "Ошибка при обновлении данных")
 
     @staticmethod
