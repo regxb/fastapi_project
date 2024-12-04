@@ -47,15 +47,16 @@ async def get_all_users_stats(room_id: int, session: AsyncSession) -> Sequence[C
 
 
 async def get_rooms(session: AsyncSession):
-    query = select(
-        CompetitionRoom,
-        func.count().filter(
-            and_(
-                CompetitionRoomData.user_status == "online",
-                CompetitionRoomData.competition_id == CompetitionRoom.id
-            )
-        ).label("online_count")
-    ).group_by(CompetitionRoom.id)
+    query = (
+        select(
+            CompetitionRoom,
+            func.count(CompetitionRoom.competition_room_data)
+            .filter(CompetitionRoomData.user_status == "online")
+            .label("online_count")
+        )
+        .outerjoin(CompetitionRoom.competition_room_data)
+        .group_by(CompetitionRoom.id)
+    )
 
     result = await session.execute(query)
     rooms = result.all()

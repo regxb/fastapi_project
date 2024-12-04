@@ -234,17 +234,23 @@ class CompetitionService:
                                                                random_words["other_words"])
 
     async def check_competition_answer(self, answer_data: CompetitionAnswerSchema,
-                                       websocket_manager: WebSocketManager, room_manager: RoomManager) -> None:
+                                       websocket_manager: WebSocketManager, room_manager: RoomManager):
         result = await self.__check_answer(answer_data)
         await self.__update_user_statistics(answer_data, result)
         users_stats = await self.get_users_stats(answer_data.room_id)
         response = await ResponseCompetitionsService.create_competition_answer_response(
             answer_data, result, users_stats, self.session
         )
-        await websocket_manager.room_broadcast_message(answer_data.room_id, response.json(), room_manager)
-        await asyncio.sleep(3)
-        new_question = await ResponseCompetitionsService.create_new_questions_response(answer_data, self.session)
-        await websocket_manager.room_broadcast_message(answer_data.room_id, new_question.json(), room_manager)
+        room_data = await get_room_data(answer_data.room_id, self.session)
+        if room_data.status == "active":
+            await websocket_manager.room_broadcast_message(answer_data.room_id, response.json(), room_manager)
+            await asyncio.sleep(3)
+            new_question = await ResponseCompetitionsService.create_new_questions_response(answer_data, self.session)
+            await websocket_manager.room_broadcast_message(answer_data.room_id, new_question.json(), room_manager)
+            return
+        response = {"type": "error", "room_id": answer_data.room_id, "message": "owner_not_in_room"}
+        await websocket_manager.room_broadcast_message(answer_data.room_id, CompetitionAnswerError(**response).json(),
+                                                       room_manager)
 
     async def __check_answer(self, answer_data: CompetitionAnswerSchema) -> bool:
         async with self.session as session:
@@ -298,5 +304,8 @@ class ResponseCompetitionsService:
     @staticmethod
     async def create_new_questions_response(answer_data: CompetitionAnswerSchema, session: AsyncSession):
         room_data = await get_room_data(answer_data.room_id, session)
-        new_question = await CompetitionService.prepare_competition_words(room_data, session)
-        return new_question
+        if room_data.status == "active":
+            new_question = await CompetitionService.prepare_competition_words(room_data, session)
+            return new_question
+        response = {"type": "error", "room_id": answer_data.room_id, "message": "owner_leave"}
+        return CompetitionAnswerError(**response)
