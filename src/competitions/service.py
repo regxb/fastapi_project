@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import redis.asyncio as redis
@@ -242,6 +243,9 @@ class CompetitionService:
             answer_data, result, users_stats, self.session
         )
         await websocket_manager.room_broadcast_message(answer_data.room_id, response.json(), room_manager)
+        await asyncio.sleep(3)
+        new_question = await ResponseCompetitionsService.create_new_questions_response(answer_data, self.session)
+        await websocket_manager.room_broadcast_message(answer_data.room_id, new_question.json(), room_manager)
 
     async def __check_answer(self, answer_data: CompetitionAnswerSchema) -> bool:
         async with self.session as session:
@@ -285,9 +289,15 @@ class ResponseCompetitionsService:
                     "users": [{
                         "username": user.user.username,
                         "user_photo_url": user.user.photo_url,
-                        "points": user.user_points} for user in users_stats],
-                    "new_question": await CompetitionService.prepare_competition_words(room_data, session)}
+                        "points": user.user_points} for user in users_stats]
+                }
                 response = CompetitionsAnswersSchema(**response_data)
                 return response
             response = {"type": "error", "room_id": answer_data.room_id, "message": "owner_leave"}
             return CompetitionAnswerError(**response)
+
+    @staticmethod
+    async def create_new_questions_response(answer_data: CompetitionAnswerSchema, session: AsyncSession):
+        room_data = await get_room_data(answer_data.room_id, session)
+        new_question = await CompetitionService.prepare_competition_words(room_data, session)
+        return new_question
