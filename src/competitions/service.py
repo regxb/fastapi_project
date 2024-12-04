@@ -57,9 +57,7 @@ class RoomManager:
             for room, online_count in rooms:
                 room = room.__dict__
                 room.update({"online_count": online_count})
-                rooms_list.append({
-                    "room": room
-                })
+                rooms_list.append(room)
             return rooms_list
 
     async def create_room(
