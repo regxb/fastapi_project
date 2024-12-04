@@ -18,17 +18,21 @@ router = APIRouter(
 
 
 @router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket,
-                             session: AsyncSession = Depends(get_async_session),
-                             websocket_manager: WebSocketManager = Depends(get_websocket_manager),
-                             room_manager: RoomManager = Depends(get_room_manager)):
+async def websocket_endpoint(
+    websocket: WebSocket,
+    session: AsyncSession = Depends(get_async_session),
+    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
+    room_manager: RoomManager = Depends(get_room_manager)
+):
     await websocket.accept()
+    data = None
     try:
         while True:
             data = await websocket.receive_json()
             await websocket_manager.add_connection(data["telegram_id"], websocket)
     except WebSocketDisconnect:
-        await websocket_manager.remove_connections(data["telegram_id"], session, room_manager)
+        if data and "telegram_id" in data:
+            await websocket_manager.remove_connections(data["telegram_id"], session, room_manager)
 
 
 @router.get("/rooms")
