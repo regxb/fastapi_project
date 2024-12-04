@@ -55,9 +55,10 @@ class RoomManager:
             rooms = await get_rooms(session)
             rooms_list = []
             for room, online_count in rooms:
+                room = room.__dict__
+                room.update({"online_count": online_count})
                 rooms_list.append({
-                    "room": room,
-                    "online_count": online_count
+                    "room": room
                 })
             return rooms_list
 
