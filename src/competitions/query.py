@@ -36,7 +36,7 @@ async def get_competition(room_id: int, session: AsyncSession) -> CompetitionRoo
     return competition_room
 
 
-async def get_users_stats(room_id: int, session: AsyncSession) -> Sequence[CompetitionRoomData]:
+async def get_all_users_stats(room_id: int, session: AsyncSession) -> Sequence[CompetitionRoomData]:
     query = (select(CompetitionRoomData)
              .options(joinedload(CompetitionRoomData.user))
              .where(and_(CompetitionRoomData.competition_id == room_id, CompetitionRoomData.user_status == "online"))
@@ -56,5 +56,15 @@ async def get_users_count_in_room(room_id: int, session: AsyncSession) -> int:
              .select_from(CompetitionRoomData)
              .where(and_(CompetitionRoomData.competition_id == room_id, CompetitionRoomData.user_status == "online"))
              )
+    result = await session.scalar(query)
+    return result
+
+
+async def check_user_in_room(room_id: int, session: AsyncSession):
+    query = (select(CompetitionRoomData)
+             .join(CompetitionRoom)
+             .where(and_(CompetitionRoomData.competition_id == room_id,
+                         CompetitionRoom.owner_id == CompetitionRoomData.user_id,
+                         CompetitionRoomData.user_status == "online")))
     result = await session.scalar(query)
     return result

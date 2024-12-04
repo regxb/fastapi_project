@@ -43,3 +43,9 @@ class CompetitionsAnswersSchema(BaseModel):
     correct_word_id: uuid.UUID
     users: List[UserStatsSchema]
     new_question: RandomWordResponse
+
+
+class CompetitionAnswerError(BaseModel):
+    type: str
+    room_id: int
+    message: str
