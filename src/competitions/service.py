@@ -9,7 +9,7 @@ from fastapi.websockets import WebSocket
 from .models import CompetitionRoom, CompetitionRoomData
 from .query import get_user_rooms_data, get_competition, get_all_users_stats, get_rooms, get_users_count_in_room, \
     get_room_data, get_user_room_data, check_user_in_room
-from .schemas import CompetitionRoomSchema, CompetitionAnswerSchema, CompetitionsSchema, CompetitionsAnswersSchema, \
+from .schemas import CompetitionRoomSchema, CompetitionAnswerSchema, CompetitionSchema, CompetitionsAnswersSchema, \
     CompetitionAnswerError
 from ..models import User
 from ..quizzes.query import get_translation_words
@@ -49,12 +49,19 @@ class RoomManager:
         self.redis = self.redis = redis.from_url("redis://redis:6379")
 
     @staticmethod
-    async def get_rooms_list(session: AsyncSession) -> list[CompetitionRoom]:
+    async def get_rooms_list(session: AsyncSession) -> list:
         async with session:
-            return await get_rooms(session)
+            rooms = await get_rooms(session)
+            rooms_list = []
+            for room, online_count in rooms:
+                rooms_list.append({
+                    "room": room,
+                    "online_count": online_count
+                })
+            return rooms_list
 
     async def create_room(
-            self, room_data: CompetitionsSchema, websocket_manager: WebSocketManager, session: AsyncSession
+            self, room_data: CompetitionSchema, websocket_manager: WebSocketManager, session: AsyncSession
     ) -> None:
         async with session as session:
             user = await get_user(session, room_data.telegram_id)

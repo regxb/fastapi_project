@@ -18,7 +18,7 @@ class CompetitionAnswerSchema(BaseModel):
     room_id: int
 
 
-class CompetitionsSchema(BaseModel):
+class CompetitionSchema(BaseModel):
     telegram_id: int
     language_from_id: int
     language_to_id: int

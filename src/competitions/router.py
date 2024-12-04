@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocketDisconnect
 
 from src.competitions.dependencies import get_websocket_manager, get_room_manager
-from src.competitions.schemas import CompetitionRoomSchema, CompetitionAnswerSchema, CompetitionsSchema
+from src.competitions.schemas import CompetitionRoomSchema, CompetitionAnswerSchema, CompetitionSchema
 from src.competitions.service import WebSocketManager, RoomService, CompetitionService, RoomManager
 from src.database import get_async_session
 from fastapi.websockets import WebSocket
@@ -42,7 +42,7 @@ async def get_rooms(session: AsyncSession = Depends(get_async_session),
 
 
 @router.post("/create-room")
-async def create_room(room_data: CompetitionsSchema,
+async def create_room(room_data: CompetitionSchema,
                       session: AsyncSession = Depends(get_async_session),
                       websocket_manager: WebSocketManager = Depends(get_websocket_manager),
                       room_manager: RoomManager = Depends(get_room_manager)):
