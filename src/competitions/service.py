@@ -9,13 +9,13 @@ from fastapi.websockets import WebSocket
 
 from .models import CompetitionRoom, CompetitionRoomData
 from .query import get_user_rooms_data, get_competition, get_all_users_stats, get_rooms, get_users_count_in_room, \
-    get_room_data, get_user_room_data, check_user_in_room
+    get_room_data, get_user_room_data
 from .schemas import CompetitionRoomSchema, CompetitionAnswerSchema, CompetitionSchema, CompetitionsAnswersSchema, \
     CompetitionAnswerError
 from ..models import User
 from ..quizzes.query import get_translation_words
 from ..quizzes.schemas import RandomWordResponse
-from ..quizzes.service import WordService, ResponseService
+from ..quizzes.service import WordService, QuizResponseService
 from ..users.query import get_user
 from ..utils import commit_changes_or_rollback
 
@@ -46,8 +46,8 @@ class WebSocketManager:
 
 class RoomManager:
 
-    def __init__(self):
-        self.redis = self.redis = redis.from_url("redis://redis:6379")
+    def __init__(self, redis_client: redis.Redis):
+        self.redis = redis_client
 
     @staticmethod
     async def get_rooms_list(session: AsyncSession) -> list:
@@ -68,42 +68,30 @@ class RoomManager:
             new_room = CompetitionRoom(owner_id=user.id, **room_data.dict(exclude={"telegram_id"}))
             session.add(new_room)
             await commit_changes_or_rollback(session, "Ошибка при создании комнаты")
-            await websocket_manager.notify_all_users(self.__create_room_message(new_room, user))
+            await websocket_manager.notify_all_users(MessageService.create_new_room_message(new_room, user))
 
     async def add_user_to_room(self, telegram_id: int, room_id: int) -> None:
         await self.redis.sadd(f"room:{room_id}", telegram_id)
-        await self.redis.hset("user_room_map", telegram_id, room_id)
+        await self.redis.hset("user_room_map", str(telegram_id), str(room_id))
 
     async def remove_user_from_room(
             self, telegram_id: int, websocket_manager: WebSocketManager, session: AsyncSession, room_id: int = None
     ) -> None:
         if room_id is None:
-            room_id = await self.redis.hget("user_room_map", telegram_id)
+            room_id = await self.redis.hget("user_room_map", str(telegram_id))
             if not room_id:
                 return
-            await RoomService.change_status_to_pause(int(room_id), telegram_id, session)
             user = await get_user(session, telegram_id)
             room_data = await get_room_data(int(room_id), session)
-            users_count = await get_users_count_in_room(int(room_id), session)
-            users_stats = await get_all_users_stats(int(room_id), session)
-            await websocket_manager.notify_all_users(RoomService.create_user_message("leave", user, room_data,
-                                                                                     users_count, users_stats))
+            await websocket_manager.notify_all_users(
+                json.dumps(await MessageService.create_user_move_message("leave", user, room_data, session))
+            )
         await self.redis.srem(f"room:{int(room_id)}", telegram_id)
-        await self.redis.hdel("user_room_map", telegram_id)
+        await self.redis.hdel("user_room_map", str(telegram_id))
 
     async def get_users_in_room(self, room_id: int) -> list[int]:
         users = await self.redis.smembers(f"room:{room_id}")
         return [int(user) for user in users]
-
-    def __create_room_message(self, room: CompetitionRoom, user: User) -> str:
-        return json.dumps({
-            "type": "created_new_room",
-            "room_data": {
-                "room_id": room.id, "owner": user.username,
-                "language_from_id": room.language_from_id,
-                "language_to_id": room.language_to_id
-            }
-        })
 
 
 class RoomService:
@@ -113,7 +101,7 @@ class RoomService:
 
     async def update_user_room_data(
             self, room_data: CompetitionRoomSchema, action: str, websocket_manager: WebSocketManager,
-            room_manager: RoomManager
+            room_manager: RoomManager, redis_client: redis.Redis
     ):
         async with self.session as session:
             telegram_id, room_id = room_data.telegram_id, room_data.room_id
@@ -122,18 +110,20 @@ class RoomService:
             user_room_data = await get_user_room_data(room_id, user.id, session)
 
             if action == "join":
-                await self.user_join(room_id, telegram_id, user.id, user_room_data, room_manager)
+                return await self.user_join(
+                    room_id, telegram_id, user.id, user_room_data, room_manager, session, websocket_manager,
+                    redis_client
+                )
 
             elif action == "leave":
-                await self.user_leave(room_id, telegram_id, user_room_data, room_manager, websocket_manager)
-
-            users_count = await get_users_count_in_room(room_id, session)
-            users_stats = await get_all_users_stats(room_id, self.session)
-            await websocket_manager.notify_all_users(self.create_user_message(action, user, room_data, users_count,
-                                                                              users_stats))
+                await self.user_leave(
+                    room_id, telegram_id, user_room_data, room_manager, websocket_manager, user, room_data, session
+                )
 
     async def user_join(self, room_id: int, telegram_id: int, user_id: int, user_room_data: CompetitionRoomData,
-                        room_manager: RoomManager):
+                        room_manager: RoomManager, session: AsyncSession, websocket_manager: WebSocketManager,
+                        redis_client: redis
+                        ):
         room_data = await get_room_data(room_id, self.session)
         user = await get_user(self.session, telegram_id)
         if room_data.owner_id == user.id:
@@ -141,12 +131,20 @@ class RoomService:
             await commit_changes_or_rollback(self.session, "Ошибка при обновлении данных")
         await self.__change_user_status_to_online(room_id, user_id, user_room_data)
         await room_manager.add_user_to_room(telegram_id, room_id)
+        message_for_users = await MessageService.create_user_move_message("join", user, room_data, session)
+        await websocket_manager.notify_all_users(json.dumps(message_for_users))
+        current_question = await CompetitionService.get_current_question(room_id, redis_client)
+        message_for_users["current_question"] = current_question
+        return message_for_users
 
-    async def user_leave(self, room_id: int, telegram_id: int, user_room_data: CompetitionRoomData,
-                         room_manager: RoomManager, websocket_manager: WebSocketManager):
-        await self.change_status_to_pause(room_id, telegram_id, self.session)
+    async def user_leave(
+            self, room_id: int, telegram_id: int, user_room_data: CompetitionRoomData, room_manager: RoomManager,
+            websocket_manager: WebSocketManager, user: User, room_data: CompetitionRoom, session: AsyncSession
+    ):
         await self.__change_user_status_to_offline(user_room_data)
         await room_manager.remove_user_from_room(telegram_id, websocket_manager, self.session, room_id)
+        message_for_users = await MessageService.create_user_move_message("leave", user, room_data, session)
+        await websocket_manager.notify_all_users(json.dumps(message_for_users))
 
     async def __change_user_status_to_offline(self, user_room_data: CompetitionRoomData) -> None:
         async with self.session as session:
@@ -169,21 +167,6 @@ class RoomService:
             await commit_changes_or_rollback(session, "Ошибка при подключении в комнату")
 
     @staticmethod
-    def create_user_message(action: str, user: User, room_data: CompetitionRoom, users_count: int,
-                            users_stats: Sequence[CompetitionRoomData]) -> str:
-        return json.dumps({
-            "type": f"user_{action}",
-            "room_id": room_data.id,
-            "username": user.username,
-            "status_room": room_data.status,
-            "users_count": users_count,
-            "users": [{
-                "username": user.user.username,
-                "user_photo_url": user.user.photo_url,
-                "points": user.user_points} for user in users_stats]
-        })
-
-    @staticmethod
     async def change_user_status(telegram_id: int, status: str, session: AsyncSession) -> None:
         async with session:
             user = await get_user(session, telegram_id)
@@ -193,71 +176,75 @@ class RoomService:
             await commit_changes_or_rollback(session, "Ошибка при обновлении данных")
 
     @staticmethod
-    async def change_status_to_active(room_id: int, session: AsyncSession) -> None:
+    async def change_status_to_active(room_id: int, session: AsyncSession):
         competition_room = await get_competition(room_id, session)
+        if competition_room.status == "active":
+            return False
         competition_room.status = "active"
         await commit_changes_or_rollback(session, "Ошибка при обновлении данных")
-
-    @staticmethod
-    async def change_status_to_pause(room_id: int, telegram_id: int, session: AsyncSession) -> None:
-        user = await get_user(session, telegram_id)
-        room_data = await get_room_data(int(room_id), session)
-        if room_data.owner_id == user.id:
-            competition_room = await get_competition(room_id, session)
-            competition_room.status = "pause"
-            await commit_changes_or_rollback(session, "Ошибка при обновлении данных")
+        return True
 
 
 class CompetitionService:
-
     button_block = False
 
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def start(self, room_id: int, websocket_manager: WebSocketManager, room_manager: RoomManager):
+    async def start(
+            self, room_id: int, websocket_manager: WebSocketManager, room_manager: RoomManager,
+            redis_client: redis.Redis):
         async with self.session as session:
-            owner_in_room = await check_user_in_room(room_id, session)
-            if not owner_in_room:
-                return await websocket_manager.room_broadcast_message(
-                    room_id, json.dumps({"type": "error", "message": "owner_not_in_room"}), room_manager
+            change_status = await RoomService.change_status_to_active(room_id, session)
+            if not change_status:
+                error_response = MessageService.create_error_message(
+                    room_id, "Can't start, the game is already in progress"
                 )
-            await RoomService.change_status_to_active(room_id, session)
+                return error_response
             room_data = await get_competition(room_id, session)
-            response = await CompetitionService.prepare_competition_words(room_data, session)
+            response = await CompetitionService.prepare_competition_words(room_data, session, redis_client)
             await websocket_manager.room_broadcast_message(room_id, response.json(), room_manager)
 
     @staticmethod
-    async def prepare_competition_words(room_data: CompetitionRoom, session: AsyncSession) -> RandomWordResponse:
+    async def prepare_competition_words(
+            room_data: CompetitionRoom, session: AsyncSession, redis_client: redis.Redis
+                                        ) -> RandomWordResponse:
         async with session:
             word_service = WordService(session)
             random_words = await word_service.get_random_words(room_data.language_from_id, room_data.language_to_id)
-            return ResponseService.create_random_word_response(random_words["word_for_translate"],
-                                                               random_words["other_words"])
 
-    async def check_competition_answer(self, answer_data: CompetitionAnswerSchema,
-                                       websocket_manager: WebSocketManager, room_manager: RoomManager):
+            response = QuizResponseService.create_random_word_response(
+                random_words["word_for_translate"], random_words["other_words"]
+            )
+            await CompetitionService.save_current_question(room_data.id, response, redis_client)
+            return response
+
+    async def check_competition_answer(
+            self, answer_data: CompetitionAnswerSchema, websocket_manager: WebSocketManager, room_manager: RoomManager,
+            redis_client: redis.Redis
+    ):
         if CompetitionService.button_block:
             return
+        room_data = await get_room_data(answer_data.room_id, self.session)
+        if room_data.status != "active":
+            error_response = MessageService.create_error_message(answer_data.room_id, "The game hasn't started yet")
+            return error_response
         CompetitionService.button_block = True
         result = await self.__check_answer(answer_data)
         await self.__update_user_statistics(answer_data, result)
-        await self.send_competition_answer(result, answer_data, room_manager, websocket_manager)
+        await self.send_competition_answer(result, answer_data, room_manager, websocket_manager, redis_client)
         CompetitionService.button_block = False
 
     async def send_competition_answer(
             self, result: bool, answer_data: CompetitionAnswerSchema,
-            room_manager: RoomManager, websocket_manager: WebSocketManager):
+            room_manager: RoomManager, websocket_manager: WebSocketManager, redis_client: redis.Redis):
         users_stats = await self.get_users_stats(answer_data.room_id)
         room_data = await get_room_data(answer_data.room_id, self.session)
 
         if room_data.status == "active":
             await self.send_answer_response(answer_data, result, users_stats, websocket_manager, room_manager)
-            await self.send_new_question(answer_data, websocket_manager, room_manager, self.session)
+            await self.send_new_question(answer_data, websocket_manager, room_manager, redis_client)
             return
-        response = {"type": "error", "room_id": answer_data.room_id, "message": "owner_not_in_room"}
-        await websocket_manager.room_broadcast_message(answer_data.room_id, CompetitionAnswerError(**response).json(),
-                                                       room_manager)
 
     async def send_answer_response(
             self, answer_data: CompetitionAnswerSchema, result: bool,
@@ -268,11 +255,14 @@ class CompetitionService:
         await websocket_manager.room_broadcast_message(answer_data.room_id, response.json(), room_manager)
 
     async def send_new_question(
-            self, answer_data: CompetitionAnswerSchema,
-            websocket_manager: WebSocketManager, room_manager: RoomManager, session: AsyncSession
+            self, answer_data: CompetitionAnswerSchema, websocket_manager: WebSocketManager, room_manager: RoomManager,
+            redis_client: redis.Redis
     ):
         await asyncio.sleep(3)
-        new_question = await ResponseCompetitionsService.create_new_questions_response(answer_data, self.session)
+        await self.remove_current_answer(answer_data.room_id, redis_client)
+        new_question = await ResponseCompetitionsService.create_new_questions_response(
+            answer_data, self.session, redis_client
+        )
         await websocket_manager.room_broadcast_message(answer_data.room_id, new_question.json(), room_manager)
 
     async def __check_answer(self, answer_data: CompetitionAnswerSchema) -> bool:
@@ -294,6 +284,56 @@ class CompetitionService:
             user_room_data = await get_user_room_data(room_id, user.id, session)
             user_room_data.user_points += 10 if result else -10
             await commit_changes_or_rollback(session, "Ошибка при обновлении данных")
+
+    @staticmethod
+    async def save_current_question(room_id, current_question: RandomWordResponse, redis_client: redis.Redis):
+        await redis_client.hset("room_question", room_id, current_question.json())
+
+    @staticmethod
+    async def remove_current_answer(room_id, redis_client: redis.Redis):
+        await redis_client.hdel("room_question", room_id)
+
+    @staticmethod
+    async def get_current_question(room_id, redis_client: redis.Redis):
+        current_question = await redis_client.hget("room_question", room_id)
+        if not current_question:
+            return None
+        return json.loads(current_question)
+
+
+class MessageService:
+
+    @staticmethod
+    def create_error_message(room_id: int, message: str) -> CompetitionAnswerError:
+        response = CompetitionAnswerError(type="error", room_id=room_id, message=message)
+        return response
+
+    @staticmethod
+    async def create_user_move_message(action: str, user: User, room_data: CompetitionRoom, session: AsyncSession) -> dict:
+        users_count = await get_users_count_in_room(room_data.id, session)
+        users_stats = await get_all_users_stats(room_data.id, session)
+        return {
+            "type": f"user_{action}",
+            "room_id": room_data.id,
+            "username": user.username,
+            "status_room": room_data.status,
+            "users_count": users_count,
+            "users": [{
+                "username": user.user.username,
+                "user_photo_url": user.user.photo_url,
+                "points": user.user_points} for user in users_stats]
+        }
+
+    @staticmethod
+    def create_new_room_message(room: CompetitionRoom, user: User) -> str:
+        return json.dumps({
+            "type": "created_new_room",
+            "room_data": {
+                "room_id": room.id, "owner": user.username,
+                "language_from_id": room.language_from_id,
+                "language_to_id": room.language_to_id
+            }
+        })
 
 
 class ResponseCompetitionsService:
@@ -325,10 +365,12 @@ class ResponseCompetitionsService:
             return CompetitionAnswerError(**response)
 
     @staticmethod
-    async def create_new_questions_response(answer_data: CompetitionAnswerSchema, session: AsyncSession):
+    async def create_new_questions_response(
+            answer_data: CompetitionAnswerSchema, session: AsyncSession, redis_client: redis.Redis
+    ):
         room_data = await get_room_data(answer_data.room_id, session)
         if room_data.status == "active":
-            new_question = await CompetitionService.prepare_competition_words(room_data, session)
+            new_question = await CompetitionService.prepare_competition_words(room_data, session,redis_client)
             return new_question
         response = {"type": "error", "room_id": answer_data.room_id, "message": "owner_leave"}
         return CompetitionAnswerError(**response)
