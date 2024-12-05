@@ -1,10 +1,11 @@
+import redis
 from fastapi import APIRouter
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocketDisconnect
 
-from src.competitions.dependencies import get_websocket_manager, get_room_manager
+from src.competitions.dependencies import get_websocket_manager, get_room_manager, get_redis
 from src.competitions.schemas import CompetitionRoomSchema, CompetitionAnswerSchema, CompetitionSchema
 from src.competitions.service import WebSocketManager, RoomService, CompetitionService, RoomManager
 from src.database import get_async_session
@@ -53,26 +54,29 @@ async def create_room(room_data: CompetitionSchema,
 async def join_room(room_data: CompetitionRoomSchema,
                     session: AsyncSession = Depends(get_async_session),
                     websocket_manager: WebSocketManager = Depends(get_websocket_manager),
-                    room_manager: RoomManager = Depends(get_room_manager)):
+                    room_manager: RoomManager = Depends(get_room_manager),
+                    redis_client: redis.Redis = Depends(get_redis)):
     room_service = RoomService(session)
-    await room_service.update_user_room_data(room_data, "join", websocket_manager, room_manager)
+    return await room_service.update_user_room_data(room_data, "join", websocket_manager, room_manager, redis_client)
 
 
 @router.patch("/leave-room")
 async def leave_room(room_data: CompetitionRoomSchema,
                      session: AsyncSession = Depends(get_async_session),
                      websocket_manager: WebSocketManager = Depends(get_websocket_manager),
-                     room_manager: RoomManager = Depends(get_room_manager)):
+                     room_manager: RoomManager = Depends(get_room_manager),
+                     redis_client: redis.Redis = Depends(get_redis)):
     room_service = RoomService(session)
-    await room_service.update_user_room_data(room_data, "leave", websocket_manager, room_manager)
+    return await room_service.update_user_room_data(room_data, "leave", websocket_manager, room_manager, redis_client)
 
 
 @router.get("/start")
 async def start(room_id: int, session: AsyncSession = Depends(get_async_session),
                 websocket_manager: WebSocketManager = Depends(get_websocket_manager),
-                room_manager: RoomManager = Depends(get_room_manager)):
+                room_manager: RoomManager = Depends(get_room_manager),
+                redis_client: redis.Redis = Depends(get_redis)):
     competition_service = CompetitionService(session)
-    await competition_service.start(room_id, websocket_manager, room_manager)
+    return await competition_service.start(room_id, websocket_manager, room_manager, redis_client)
 
 
 @router.patch("/check_answer")
@@ -80,7 +84,10 @@ async def check_competition_answer(
         answer_data: CompetitionAnswerSchema,
         session: AsyncSession = Depends(get_async_session),
         websocket_manager: WebSocketManager = Depends(get_websocket_manager),
-        room_manager: RoomManager = Depends(get_room_manager)
+        room_manager: RoomManager = Depends(get_room_manager),
+        redis_client: redis.Redis = Depends(get_redis)
 ):
     competition_service = CompetitionService(session)
-    await competition_service.check_competition_answer(answer_data, websocket_manager, room_manager)
+    return await competition_service.check_competition_answer(
+        answer_data, websocket_manager, room_manager, redis_client
+    )
