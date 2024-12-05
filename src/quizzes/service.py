@@ -26,8 +26,8 @@ class WordService:
             words = await self.get_random_words(user.learning_language_from_id, user.learning_language_to_id)
             word_for_translate = words["word_for_translate"]
             in_favorite = await get_user_favorite_words(session, word_for_translate.id, user.id)
-            response = ResponseService.create_random_word_response(word_for_translate, words["other_words"],
-                                                                   in_favorite)
+            response = QuizResponseService.create_random_word_response(word_for_translate, words["other_words"],
+                                                                       in_favorite)
             return response
 
     async def get_random_words(self, language_from_id: int, language_to_id: int) -> dict:
@@ -48,7 +48,7 @@ class WordService:
             shuffle_random_words(words_list)
             shuffle_random_words(translation_words_list)
 
-            response = ResponseService.create_match_words_response(words_list, translation_words_list)
+            response = QuizResponseService.create_match_words_response(words_list, translation_words_list)
             return response
 
 
@@ -66,8 +66,8 @@ class FavoriteWordService:
             add_word_for_translate_to_other_words(other_words, random_user_favorite_word)
             shuffle_random_words(other_words)
 
-            response = ResponseService.create_random_word_response(random_user_favorite_word, other_words,
-                                                                   in_favorite=True)
+            response = QuizResponseService.create_random_word_response(random_user_favorite_word, other_words,
+                                                                       in_favorite=True)
             return response
 
 
@@ -88,12 +88,12 @@ class SentenceService:
             words_for_sentence.extend(random_words_for_sentence)
             shuffle_random_words(words_for_sentence)
 
-            response = ResponseService.create_random_sentence_response(random_sentence_for_translate,
-                                                                       words_for_sentence)
+            response = QuizResponseService.create_random_sentence_response(random_sentence_for_translate,
+                                                                           words_for_sentence)
             return response
 
 
-class AnswerService:
+class QuizAnswerService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
@@ -108,7 +108,7 @@ class AnswerService:
             return delete_punctuation(sentence.name).lower() == " ".join(user_words).lower()
 
 
-class ResponseService:
+class QuizResponseService:
 
     @staticmethod
     def create_random_word_response(word_for_translate: WordInfo, words: List[WordInfo],
