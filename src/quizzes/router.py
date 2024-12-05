@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_async_session
 from src.quizzes.schemas import RandomWordResponse, RandomSentenceResponse
-from src.quizzes.service import FavoriteWordService, WordService, SentenceService, AnswerService
+from src.quizzes.service import FavoriteWordService, WordService, SentenceService, QuizAnswerService
 
 router = APIRouter(
     prefix="/quiz",
@@ -29,7 +29,7 @@ async def get_random_favorite_word(telegram_id: int, session: AsyncSession = Dep
 @router.get("/check-answer", response_model=bool)
 async def check_answer(word_for_translate_id: uuid.UUID, user_word_id: uuid.UUID,
                        session: AsyncSession = Depends(get_async_session)):
-    answer_service = AnswerService(session)
+    answer_service = QuizAnswerService(session)
     return await answer_service.check_answer(word_for_translate_id, user_word_id)
 
 
@@ -45,7 +45,7 @@ async def check_sentence_answer(
         user_words: list[str] = Query(...),
         session: AsyncSession = Depends(get_async_session)
 ):
-    answer_service = AnswerService(session)
+    answer_service = QuizAnswerService(session)
     return await answer_service.check_sentence_answer(sentence_id, user_words)
 
 
