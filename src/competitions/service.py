@@ -126,9 +126,6 @@ class RoomService:
                         ):
         room_data = await get_room_data(room_id, self.session)
         user = await get_user(self.session, telegram_id)
-        if room_data.owner_id == user.id:
-            await self.change_status_to_active(room_id, self.session)
-            await commit_changes_or_rollback(self.session, "Ошибка при обновлении данных")
         await self.__change_user_status_to_online(room_id, user_id, user_room_data)
         await room_manager.add_user_to_room(telegram_id, room_id)
         message_for_users = await MessageService.create_user_move_message("join", user, room_data, session)
@@ -230,21 +227,21 @@ class CompetitionService:
             error_response = MessageService.create_error_message(answer_data.room_id, "The game hasn't started yet")
             return error_response
         CompetitionService.button_block = True
-        result = await self.__check_answer(answer_data)
-        await self.__update_user_statistics(answer_data, result)
-        await self.send_competition_answer(result, answer_data, room_manager, websocket_manager, redis_client)
-        CompetitionService.button_block = False
+        try:
+            result = await self.__check_answer(answer_data)
+            await self.__update_user_statistics(answer_data, result)
+            await self.send_competition_answer(result, answer_data, room_manager, websocket_manager, redis_client)
+        finally:
+            CompetitionService.button_block = False
 
     async def send_competition_answer(
             self, result: bool, answer_data: CompetitionAnswerSchema,
-            room_manager: RoomManager, websocket_manager: WebSocketManager, redis_client: redis.Redis):
+            room_manager: RoomManager, websocket_manager: WebSocketManager, redis_client: redis.Redis
+    ):
         users_stats = await self.get_users_stats(answer_data.room_id)
-        room_data = await get_room_data(answer_data.room_id, self.session)
 
-        if room_data.status == "active":
-            await self.send_answer_response(answer_data, result, users_stats, websocket_manager, room_manager)
-            await self.send_new_question(answer_data, websocket_manager, room_manager, redis_client)
-            return
+        await self.send_answer_response(answer_data, result, users_stats, websocket_manager, room_manager)
+        await self.send_new_question(answer_data, websocket_manager, room_manager, redis_client)
 
     async def send_answer_response(
             self, answer_data: CompetitionAnswerSchema, result: bool,
@@ -309,7 +306,9 @@ class MessageService:
         return response
 
     @staticmethod
-    async def create_user_move_message(action: str, user: User, room_data: CompetitionRoom, session: AsyncSession) -> dict:
+    async def create_user_move_message(
+            action: str, user: User, room_data: CompetitionRoom, session: AsyncSession
+    ) -> dict:
         users_count = await get_users_count_in_room(room_data.id, session)
         users_stats = await get_all_users_stats(room_data.id, session)
         return {
@@ -335,6 +334,24 @@ class MessageService:
             }
         })
 
+    @staticmethod
+    def create_competition_answer_message(
+            user: User, result: bool, answer_data: CompetitionAnswerSchema, translation_word_id: int,
+            users_stats: Sequence[CompetitionRoomData]
+    ):
+        response_data = {
+            "type": "check_competition_answer",
+            "answered_user": {
+                "username": user.username, "user_photo_url": user.photo_url, "success": result},
+            "selected_word_id": answer_data.user_word_id,
+            "correct_word_id": translation_word_id,
+            "users": [{
+                "username": user.user.username,
+                "user_photo_url": user.user.photo_url,
+                "points": user.user_points} for user in users_stats]
+        }
+        return response_data
+
 
 class ResponseCompetitionsService:
 
@@ -343,34 +360,19 @@ class ResponseCompetitionsService:
             answer_data: CompetitionAnswerSchema, result: bool,
             users_stats: Sequence[CompetitionRoomData], session: AsyncSession):
         async with session:
-            room_data = await get_room_data(answer_data.room_id, session)
-            if room_data.status == "active":
-                user = await get_user(session, answer_data.telegram_id)
-                translation_word = await get_translation_words(session, answer_data.word_for_translate_id)
+            user = await get_user(session, answer_data.telegram_id)
+            translation_word = await get_translation_words(session, answer_data.word_for_translate_id)
 
-                response_data = {
-                    "type": "check_competition_answer",
-                    "answered_user": {
-                        "username": user.username, "user_photo_url": user.photo_url, "success": result},
-                    "selected_word_id": str(answer_data.user_word_id),
-                    "correct_word_id": str(translation_word.id),
-                    "users": [{
-                        "username": user.user.username,
-                        "user_photo_url": user.user.photo_url,
-                        "points": user.user_points} for user in users_stats]
-                }
-                response = CompetitionsAnswersSchema(**response_data)
-                return response
-            response = {"type": "error", "room_id": answer_data.room_id, "message": "owner_leave"}
-            return CompetitionAnswerError(**response)
+            response_data = MessageService.create_competition_answer_message(
+                user, result, answer_data, translation_word.id, users_stats
+            )
+            response = CompetitionsAnswersSchema(**response_data)
+            return response
 
     @staticmethod
     async def create_new_questions_response(
             answer_data: CompetitionAnswerSchema, session: AsyncSession, redis_client: redis.Redis
     ):
         room_data = await get_room_data(answer_data.room_id, session)
-        if room_data.status == "active":
-            new_question = await CompetitionService.prepare_competition_words(room_data, session,redis_client)
-            return new_question
-        response = {"type": "error", "room_id": answer_data.room_id, "message": "owner_leave"}
-        return CompetitionAnswerError(**response)
+        new_question = await CompetitionService.prepare_competition_words(room_data, session, redis_client)
+        return new_question
