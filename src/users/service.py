@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.constants import levels
 from src.users.query import get_all_users, get_user, get_user_data
 from src.users.schemas import UserCreate, UserInfo, UserUpdate
 from src.users.utils import create_new_user
@@ -38,3 +39,7 @@ class UserService:
             if user_data is None:
                 raise HTTPException(status_code=404, detail="Пользователь не найден")
             return UserInfo(**user_data.__dict__)
+
+    @staticmethod
+    async def update_user_rating(user_rating: str) -> str:
+        return levels[user_rating]

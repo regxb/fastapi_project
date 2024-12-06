@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 
-class ExamAnswerResponse(BaseModel):
+class ExamAnswerResponseSchema(BaseModel):
     success: bool
     message: str | None = None
 

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_async_session
-from src.exams.schemas import ExamAnswerResponse, ExamSchema
+from src.exams.schemas import ExamAnswerResponseSchema, ExamSchema
 from src.exams.service import ExamService
 
 router = APIRouter(
@@ -20,7 +20,7 @@ async def start_exam(telegram_id: int, session: AsyncSession = Depends(get_async
     return await exam.start_exam(telegram_id)
 
 
-@router.get("/check-exam-sentence-answer", response_model=ExamAnswerResponse)
+@router.get("/check-exam-sentence-answer", response_model=ExamAnswerResponseSchema)
 async def check_exam_sentence_answer(
         sentence_id: uuid.UUID,
         telegram_id: int,
@@ -30,7 +30,7 @@ async def check_exam_sentence_answer(
     return await exam.check_exam_sentence_answer(sentence_id, telegram_id, user_words)
 
 
-@router.get("/check-exam-answer", response_model=ExamAnswerResponse)
+@router.get("/check-exam-answer", response_model=ExamAnswerResponseSchema)
 async def check_exam_answer(word_for_translate_id: uuid.UUID, user_word_id: uuid.UUID, telegram_id: int,
                             session: AsyncSession = Depends(get_async_session)):
     exam = ExamService(session)
