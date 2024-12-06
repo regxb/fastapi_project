@@ -1,23 +1,24 @@
 import asyncio
 import json
-
-import redis.asyncio as redis
 from typing import Sequence
 
-from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as redis
 from fastapi.websockets import WebSocket
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import CompetitionRoom, CompetitionRoomData
-from .query import get_user_rooms_data, get_competition, get_all_users_stats, get_rooms, get_users_count_in_room, \
-    get_room_data, get_user_room_data
-from .schemas import CompetitionRoomSchema, CompetitionAnswerSchema, CompetitionSchema, CompetitionsAnswersSchema, \
-    CompetitionAnswerError
 from ..models import User
 from ..quizzes.query import get_translation_words
 from ..quizzes.schemas import RandomWordResponse
-from ..quizzes.service import WordService, QuizResponseService
+from ..quizzes.service import QuizResponseService, WordService
 from ..users.query import get_user
 from ..utils import commit_changes_or_rollback
+from .models import CompetitionRoom, CompetitionRoomData
+from .query import (get_all_users_stats, get_competition, get_room_data,
+                    get_rooms, get_user_room_data, get_user_rooms_data,
+                    get_users_count_in_room)
+from .schemas import (CompetitionAnswerError, CompetitionAnswerSchema,
+                      CompetitionRoomSchema, CompetitionsAnswersSchema,
+                      CompetitionSchema)
 
 
 class WebSocketManager:

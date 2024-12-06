@@ -1,8 +1,8 @@
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.users.query import get_user, get_all_users, get_user_data
-from src.users.schemas import UserCreate, UserUpdate, UserInfo
+from src.users.query import get_all_users, get_user, get_user_data
+from src.users.schemas import UserCreate, UserInfo, UserUpdate
 from src.users.utils import create_new_user
 from src.utils import commit_changes_or_rollback
 

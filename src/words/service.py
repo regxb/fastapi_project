@@ -2,9 +2,11 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.constants import AvailableLanguages
-from src.models import Word, TranslationWord, Sentence, TranslationSentence, FavoriteWord
+from src.models import (FavoriteWord, Sentence, TranslationSentence,
+                        TranslationWord, Word)
 from src.quizzes.constants import AvailablePartOfSpeech, AvailableWordLevel
-from src.quizzes.query import get_language_to, get_language_from, get_user_favorite_words, get_user_favorite_word
+from src.quizzes.query import (get_language_from, get_language_to,
+                               get_user_favorite_word, get_user_favorite_words)
 from src.quizzes.schemas import UserFavoriteWord
 from src.users.query import get_user
 from src.utils import commit_changes_or_rollback

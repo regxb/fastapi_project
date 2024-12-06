@@ -1,16 +1,16 @@
-import redis
-from fastapi import APIRouter
-
-from fastapi import Depends
+from fastapi import APIRouter, Depends
+from fastapi.websockets import WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocketDisconnect
 
-from src.competitions.dependencies import get_websocket_manager, get_room_manager, get_redis
-from src.competitions.schemas import CompetitionRoomSchema, CompetitionAnswerSchema, CompetitionSchema
-from src.competitions.service import WebSocketManager, RoomService, CompetitionService, RoomManager
+import redis
+from src.competitions.dependencies import (get_redis, get_room_manager,
+                                           get_websocket_manager)
+from src.competitions.schemas import (CompetitionAnswerSchema,
+                                      CompetitionRoomSchema, CompetitionSchema)
+from src.competitions.service import (CompetitionService, RoomManager,
+                                      RoomService, WebSocketManager)
 from src.database import get_async_session
-from fastapi.websockets import WebSocket
-
 
 router = APIRouter(
     prefix="/competitions",

@@ -5,11 +5,12 @@ from fastapi import Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.exams.query import get_user_exam
-from src.exams.schemas import ExamSchema, ExamAnswerResponse
-from src.exams.utils import update_user_progress, get_random_exercise, create_exam
+from src.exams.schemas import ExamAnswerResponse, ExamSchema
+from src.exams.utils import (create_exam, get_random_exercise,
+                             update_user_progress)
 from src.models import TranslationWord
 from src.quizzes.query import get_sentence_translation
-from src.quizzes.service import WordService, SentenceService
+from src.quizzes.service import SentenceService, WordService
 from src.quizzes.utils import delete_punctuation
 from src.users.query import get_user
 

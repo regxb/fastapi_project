@@ -1,6 +1,6 @@
-from typing import Sequence, List
+from typing import List, Sequence
 
-from sqlalchemy import select, and_, desc, func
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 

@@ -1,15 +1,12 @@
-from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
-from alembic import context
-
-from src.models import Base
-from src.config import DB_HOST, DB_USER, DB_PASS, DB_PORT, DB_NAME
-
 import os
 import sys
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+from src.config import DB_HOST, DB_NAME, DB_PASS, DB_PORT, DB_USER
+from src.models import Base
 
 sys.path.append(os.path.join(sys.path[0], 'src'))
 

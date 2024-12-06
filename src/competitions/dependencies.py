@@ -1,5 +1,6 @@
-from src.competitions.service import RoomManager, WebSocketManager
 import redis.asyncio as redis
+
+from src.competitions.service import RoomManager, WebSocketManager
 
 websocket_manager = WebSocketManager()
 

@@ -1,11 +1,12 @@
 import uuid
 
-from fastapi import Depends, APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_async_session
-from src.quizzes.schemas import RandomWordResponse, RandomSentenceResponse
-from src.quizzes.service import FavoriteWordService, WordService, SentenceService, QuizAnswerService
+from src.quizzes.schemas import RandomSentenceResponse, RandomWordResponse
+from src.quizzes.service import (FavoriteWordService, QuizAnswerService,
+                                 SentenceService, WordService)
 
 router = APIRouter(
     prefix="/quiz",

@@ -1,5 +1,4 @@
-from typing import List, Dict
-from uuid import UUID
+from typing import Dict, List
 
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession

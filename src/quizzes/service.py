@@ -1,16 +1,21 @@
 import uuid
-from typing import List, Dict
+from typing import List
 
 from fastapi import Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.quizzes.query import (get_random_word_for_translate, get_random_words, get_user_favorite_words,
-                               get_random_user_favorite_word, get_random_sentence_for_translate,
-                               get_random_words_for_sentence, get_random_words_for_match,
-                               get_translation_words, get_sentence_translation)
-from src.quizzes.schemas import RandomWordResponse, RandomSentenceResponse, MatchWordsResponse
-from src.quizzes.utils import add_word_for_translate_to_other_words, shuffle_random_words, delete_punctuation
-from src.schemas import WordInfo, SentenceInfo
+from src.quizzes.query import (get_random_sentence_for_translate,
+                               get_random_user_favorite_word,
+                               get_random_word_for_translate, get_random_words,
+                               get_random_words_for_match,
+                               get_random_words_for_sentence,
+                               get_sentence_translation, get_translation_words,
+                               get_user_favorite_words)
+from src.quizzes.schemas import (MatchWordsResponse, RandomSentenceResponse,
+                                 RandomWordResponse)
+from src.quizzes.utils import (add_word_for_translate_to_other_words,
+                               delete_punctuation, shuffle_random_words)
+from src.schemas import SentenceInfo, WordInfo
 from src.users.query import get_user
 
 

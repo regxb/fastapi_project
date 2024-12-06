@@ -1,12 +1,12 @@
 import uuid
 from typing import List
 
-from fastapi import Depends, APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.database import get_async_session
 from src.exams.schemas import ExamAnswerResponse, ExamSchema
 from src.exams.service import ExamService
-from src.database import get_async_session
 
 router = APIRouter(
     prefix="/exam",

@@ -1,8 +1,8 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, UUID4, ConfigDict
+from pydantic import UUID4, BaseModel, ConfigDict
 
-from src.schemas import WordInfo, SentenceInfo
+from src.schemas import SentenceInfo, WordInfo
 
 
 class UserFavoriteWord(BaseModel):
