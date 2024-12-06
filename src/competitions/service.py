@@ -3,6 +3,7 @@ import json
 from typing import Sequence
 
 import redis.asyncio as redis
+from fastapi import HTTPException
 from fastapi.websockets import WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,9 +17,7 @@ from .models import CompetitionRoom, CompetitionRoomData
 from .query import (get_all_users_stats, get_competition, get_room_data,
                     get_rooms, get_user_room_data, get_user_rooms_data,
                     get_users_count_in_room)
-from .schemas import (CompetitionAnswerError, CompetitionAnswerSchema,
-                      CompetitionRoomSchema, CompetitionsAnswersSchema,
-                      CompetitionSchema)
+from .schemas import CompetitionAnswerSchema, CompetitionRoomSchema, CompetitionsAnswersSchema, CompetitionSchema
 
 
 class WebSocketManager:
@@ -195,9 +194,7 @@ class CompetitionService:
         async with self.session as session:
             change_status = await RoomService.change_status_to_active(room_id, session)
             if not change_status:
-                error_response = MessageService.create_error_message(
-                    room_id, "Can't start, the game is already in progress"
-                )
+                error_response = MessageService.create_error_message("Can't start, the game is already in progress")
                 return error_response
             room_data = await get_competition(room_id, session)
             response = await CompetitionService.prepare_competition_words(room_data, session, redis_client)
@@ -225,7 +222,7 @@ class CompetitionService:
             return
         room_data = await get_room_data(answer_data.room_id, self.session)
         if room_data.status != "active":
-            error_response = MessageService.create_error_message(answer_data.room_id, "The game hasn't started yet")
+            error_response = MessageService.create_error_message("The game hasn't started yet")
             return error_response
         CompetitionService.button_block = True
         try:
@@ -302,9 +299,10 @@ class CompetitionService:
 class MessageService:
 
     @staticmethod
-    def create_error_message(room_id: int, message: str) -> CompetitionAnswerError:
-        response = CompetitionAnswerError(type="error", room_id=room_id, message=message)
-        return response
+    def create_error_message(message: str) -> HTTPException:
+        raise HTTPException(status_code=403, detail=message)
+        # response = CompetitionAnswerError(type="error", room_id=room_id, message=message)
+        # return response
 
     @staticmethod
     async def create_user_move_message(
