@@ -1,60 +1,87 @@
+import json
+
+import redis
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.constants import AvailableLanguages
 from src.models import (FavoriteWord, Sentence, TranslationSentence,
                         TranslationWord, Word)
-from src.quizzes.constants import AvailablePartOfSpeech, AvailableWordLevel
-from src.quizzes.query import (get_language_from, get_language_to,
-                               get_user_favorite_word, get_user_favorite_words)
+from src.quizzes.query import get_user_favorite_word, get_user_favorite_words
 from src.quizzes.schemas import UserFavoriteWord
 from src.users.query import get_user
 from src.utils import commit_changes_or_rollback
+from src.words.query import get_available_part_of_speech, get_available_languages
+from src.words.schemas import WordSchema, SentenceSchema
 
 
-class WordManagementService:
+class CacheRedisService:
 
+    def __init__(self, redis_client: redis.Redis):
+        self.redis = redis_client
+
+    async def get_cached_value(self, key: str):
+        value = await self.redis.get(key)
+        if value:
+            await self.redis.delete(key)
+            return json.loads(value)
+        return None
+
+    async def set_cached_value(self, key: str, data, expire: int = 3600):
+        await self.redis.set(key, json.dumps(data), ex=expire)
+
+
+class BaseManager:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def add_word(
-            self,
-            language_from: AvailableLanguages,
-            word_to_translate: str,
-            language_to: AvailableLanguages,
-            translation_word: str,
-            part_of_speech: AvailablePartOfSpeech,
-            level: AvailableWordLevel
-    ):
-        async with self.session as session:
-            language_to = await get_language_to(session, language_to)
-            language_from = await get_language_from(session, language_from)
 
+class WordManager(BaseManager):
+
+    async def add_word(self, word_data: WordSchema):
+        async with self.session as session:
             new_word = Word(
-                name=word_to_translate,
-                language_id=language_from.id,
-                part_of_speech=part_of_speech.name,
-                level=level.name.upper()
+                name=word_data.word_to_translate,
+                language_id=word_data.translation_from_language.value,
+                part_of_speech=word_data.part_of_speech.name,
+                level=word_data.level.upper()
             )
 
             session.add(new_word)
             await session.flush()
 
             new_translation_word = TranslationWord(
-                name=translation_word,
-                to_language_id=language_to.id,
-                from_language_id=language_from.id,
+                name=word_data.translation_word,
+                to_language_id=word_data.translation_to_language.value,
+                from_language_id=word_data.translation_from_language.value,
                 word_id=new_word.id
             )
             session.add(new_translation_word)
             await commit_changes_or_rollback(session, "Ошибка при добавлении слова")
             return {"message": "Слово успешно добавлено"}
 
+    async def get_parts_of_speech(self, cache_service: CacheRedisService):
+        parts_of_speech = await cache_service.get_cached_value("parts_of_speech")
+        if parts_of_speech:
+            return parts_of_speech
+        async with self.session as session:
+            parts_of_speech = await get_available_part_of_speech(session)
+            await cache_service.set_cached_value(
+                "parts_of_speech", [part for part in parts_of_speech], 3600
+            )
+            return parts_of_speech
 
-class FavoriteWordManagementService:
+    async def get_languages(self, cache_service: CacheRedisService):
+        languages = await cache_service.get_cached_value("languages")
+        if languages:
+            return languages
+        async with self.session as session:
+            languages = await get_available_languages(session)
+            languages_data = [{"language": language.language, "id": language.id} for language in languages]
+            await cache_service.set_cached_value("languages", languages_data, 3600)
+            return languages
 
-    def __init__(self, session: AsyncSession):
-        self.session = session
+
+class FavoriteWordManager(BaseManager):
 
     async def add_favorite_word(self, data: UserFavoriteWord):
         async with self.session as session:
@@ -87,36 +114,25 @@ class FavoriteWordManagementService:
             return {"message": "Слово было удалено"}
 
 
-class SentenceManagementService:
+class SentenceManager(BaseManager):
 
-    def __init__(self, session: AsyncSession):
-        self.session = session
-
-    async def add_sentence(
-            self,
-            translation_from_language: AvailableLanguages,
-            sentence_to_translate: str,
-            translation_to_language: AvailableLanguages,
-            translation_sentence: str,
-            level: AvailableWordLevel):
+    async def add_sentence(self, sentence_data: SentenceSchema):
         async with self.session as session:
-            language_to = await get_language_to(session, translation_to_language)
-            language_from = await get_language_from(session, translation_from_language)
 
             new_sentence = Sentence(
-                name=sentence_to_translate,
-                language_id=language_from.id,
-                level=level.value
+                name=sentence_data.sentence_to_translate,
+                language_id=sentence_data.translation_from_language.value,
+                level=sentence_data.level.value
             )
 
             session.add(new_sentence)
             await session.flush()
 
             new_translation_sentence = TranslationSentence(
-                name=translation_sentence,
+                name=sentence_data.translation_sentence,
                 sentence_id=new_sentence.id,
-                from_language_id=language_from.id,
-                to_language_id=language_to.id,
+                from_language_id=sentence_data.translation_from_language.value,
+                to_language_id=sentence_data.translation_to_language.value,
             )
             session.add(new_translation_sentence)
             await commit_changes_or_rollback(session, "Ошибка при добавлении предложения")

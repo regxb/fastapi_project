@@ -11,13 +11,13 @@ class AvailableWordLevel(str, Enum):
 
 
 class AvailablePartOfSpeech(str, Enum):
-    noun = "Существительное"
-    pronoun = "Местоимение"
-    verb = "Глагол"
-    adjective = "Прилагательное"
-    adverb = "Наречие"
-    preposition = "Предлог"
-    determiner = "Определитель"
-    numeral = "Числительное"
-    conjunction = "Союз"
-    other = "Другое"
+    noun = "noun"
+    pronoun = "pronoun"
+    verb = "verb"
+    adjective = "adjective"
+    adverb = "adverb"
+    preposition = "preposition"
+    determiner = "determiner"
+    numeral = "numeral"
+    conjunction = "conjunction"
+    other = "other"

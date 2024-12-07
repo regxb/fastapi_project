@@ -1,3 +1,4 @@
+import uuid
 from typing import List, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict
@@ -7,7 +8,7 @@ from src.schemas import SentenceInfo, WordInfo
 
 class UserFavoriteWord(BaseModel):
     telegram_id: int
-    word_id: UUID4
+    word_id: uuid.UUID
 
 
 class RandomWordResponse(BaseModel):

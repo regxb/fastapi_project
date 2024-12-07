@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 async def commit_changes_or_rollback(session: AsyncSession, message: str):
     try:
         await session.commit()
-    except Exception:
+    except Exception as e:
         await session.rollback()
         raise HTTPException(status_code=500, detail=f"{message}")
 

@@ -7,29 +7,15 @@ from src.constants import AvailableLanguages
 
 class UserCreate(BaseModel):
     telegram_id: int
-    learning_language_from_id: int
-    learning_language_to_id: int
+    learning_language_from_id: AvailableLanguages
+    learning_language_to_id: AvailableLanguages
     photo_url: str
     username: str
+    first_name: str
 
-    @field_validator("learning_language_to_id")
-    def check_language_to_exists(cls, learning_language_to_id):
-        if not AvailableLanguages.__contains__(learning_language_to_id):
-            raise ValueError(f"Язык с id{learning_language_to_id} не найден")
-        return learning_language_to_id
-
-    @field_validator("learning_language_from_id")
-    def check_language_from_exists(cls, learning_language_from_id):
-        if not AvailableLanguages.__contains__(learning_language_from_id):
-            raise ValueError(f"Язык с id{learning_language_from_id} не найден")
-        return learning_language_from_id
-
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     def check_different_languages(cls, values):
-        from_id = values.get("learning_language_from_id")
-        to_id = values.get("learning_language_to_id")
-
-        if from_id == to_id:
+        if values['learning_language_from_id'] == values['learning_language_to_id']:
             raise ValueError("Языки обучения не могут быть одинаковыми.")
         return values
 
@@ -39,13 +25,14 @@ class UserInfo(BaseModel):
     telegram_id: int
     photo_url: str
     username: str
+    first_name: str
     rating: str
-    learning_language_from_id: int
-    learning_language_to_id: int
+    learning_language_from_id: AvailableLanguages
+    learning_language_to_id: AvailableLanguages
     created_at: datetime
 
 
 class UserUpdate(BaseModel):
     telegram_id: int
-    learning_language_from_id: int
-    learning_language_to_id: int
+    learning_language_from: AvailableLanguages
+    learning_language_to: AvailableLanguages
