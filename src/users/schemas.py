@@ -34,5 +34,5 @@ class UserInfo(BaseModel):
 
 class UserUpdate(BaseModel):
     telegram_id: int
-    learning_language_from: AvailableLanguages
-    learning_language_to: AvailableLanguages
+    learning_language_from_id: AvailableLanguages
+    learning_language_to_id: AvailableLanguages

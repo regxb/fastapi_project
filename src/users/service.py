@@ -32,8 +32,8 @@ class UserService:
     async def change_user_language(self, user_data: UserUpdate):
         async with self.session as session:
             user = await get_user(session, user_data.telegram_id)
-            user.learning_language_to_id = user_data.learning_language_to_id
-            user.learning_language_from_id = user_data.learning_language_from_id
+            user.learning_language_to_id = user_data.learning_language_to_id.value
+            user.learning_language_from_id = user_data.learning_language_from_id.value
             await commit_changes_or_rollback(session, message="Ошибка при обновлении данных")
             return {"message": "Данные успешно обновлены"}
 
