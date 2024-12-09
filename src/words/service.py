@@ -8,7 +8,7 @@ from src.models import (FavoriteWord, Sentence, TranslationSentence,
                         TranslationWord, Word)
 from src.quizzes.query import get_user_favorite_word, get_user_favorite_words
 from src.quizzes.schemas import UserFavoriteWord
-from src.users.query import get_user
+from src.users.query import get_user_by_telegram_id
 from src.utils import commit_changes_or_rollback
 from src.words.query import get_available_part_of_speech, get_available_languages
 from src.words.schemas import WordSchema, SentenceSchema
@@ -85,12 +85,13 @@ class FavoriteWordManager(BaseManager):
 
     async def add_favorite_word(self, data: UserFavoriteWord):
         async with self.session as session:
-            user = await get_user(session, data.telegram_id)
+            user = await get_user_by_telegram_id(session, data.telegram_id)
             word = await session.get(Word, data.word_id)
-            new_favorite_word_is_exists = await get_user_favorite_words(session, word.id, user.id)
-
             if word is None:
                 raise HTTPException(status_code=404, detail="Слово не найдено")
+
+            new_favorite_word_is_exists = await get_user_favorite_words(session, word.id, user.id)
+
             if new_favorite_word_is_exists:
                 raise HTTPException(status_code=201, detail="Данное слово уже добавлено пользователем")
 

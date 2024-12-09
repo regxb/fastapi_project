@@ -16,7 +16,7 @@ from src.quizzes.schemas import (MatchWordsResponse, RandomSentenceResponse,
 from src.quizzes.utils import (add_word_for_translate_to_other_words,
                                delete_punctuation, shuffle_random_words)
 from src.schemas import SentenceInfo, WordInfo
-from src.users.query import get_user
+from src.users.query import get_user_by_telegram_id
 
 
 class WordService:
@@ -27,7 +27,7 @@ class WordService:
             self,
             telegram_id: int) -> RandomWordResponse:
         async with self.session as session:
-            user = await get_user(session, telegram_id)
+            user = await get_user_by_telegram_id(session, telegram_id)
             words = await self.get_random_words(user.learning_language_from_id, user.learning_language_to_id)
             word_for_translate = words["word_for_translate"]
             in_favorite = await get_user_favorite_words(session, word_for_translate.id, user.id)
@@ -46,7 +46,7 @@ class WordService:
 
     async def get_match_words(self, telegram_id: int):
         async with self.session as session:
-            user = await get_user(session, telegram_id)
+            user = await get_user_by_telegram_id(session, telegram_id)
             words = await get_random_words_for_match(session, user.learning_language_from_id)
             words_list = [{"id": w.id, "name": w.name} for w in words]
             translation_words_list = [{"id": w.translation.id, "name": w.translation.name} for w in words]
@@ -63,7 +63,7 @@ class FavoriteWordService:
 
     async def get_random_favorite_word(self, telegram_id: int):
         async with self.session as session:
-            user = await get_user(session, telegram_id)
+            user = await get_user_by_telegram_id(session, telegram_id)
             random_user_favorite_word = await get_random_user_favorite_word(session, user.id)
             other_words = await get_random_words(session, user.learning_language_to_id,
                                                  random_user_favorite_word.id)
@@ -82,7 +82,7 @@ class SentenceService:
 
     async def get_random_sentence(self, telegram_id: int):
         async with self.session as session:
-            user = await get_user(session, telegram_id)
+            user = await get_user_by_telegram_id(session, telegram_id)
             language_to_id = user.learning_language_to_id
             random_sentence_for_translate = await get_random_sentence_for_translate(session,
                                                                                     user.learning_language_from_id)

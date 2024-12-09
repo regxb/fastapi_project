@@ -12,7 +12,7 @@ from src.models import TranslationWord, Exam, User
 from src.quizzes.query import get_sentence_translation
 from src.quizzes.service import SentenceService, WordService
 from src.quizzes.utils import delete_punctuation
-from src.users.query import get_user
+from src.users.query import get_user_by_telegram_id
 from src.users.service import UserService
 from src.utils import commit_changes_or_rollback
 
@@ -39,7 +39,7 @@ class ExamService:
 
     async def start_exam(self, telegram_id: int) -> ExamSchema:
         async with self.session as session:
-            user = await get_user(session, telegram_id)
+            user = await get_user_by_telegram_id(session, telegram_id)
             user_exam = await get_user_exam(session, user.id)
             if not user_exam:
                 user_exam = await ExamManager.create_exam(user.id, session)
@@ -59,7 +59,7 @@ class ExamService:
     async def check_exam_sentence_answer(self, sentence_id: uuid.UUID, telegram_id: int,
                                          user_words: List[str] = Query(...)) -> ExamAnswerResponseSchema:
         async with self.session as session:
-            user = await get_user(session, telegram_id)
+            user = await get_user_by_telegram_id(session, telegram_id)
             user_exam = await get_user_exam(session, user.id)
             sentence = await get_sentence_translation(session, sentence_id)
             result = delete_punctuation(sentence.name).lower() == " ".join(user_words).lower()
@@ -73,7 +73,7 @@ class ExamService:
             telegram_id: int,
     ) -> ExamAnswerResponseSchema:
         async with self.session as session:
-            user = await get_user(session, telegram_id)
+            user = await get_user_by_telegram_id(session, telegram_id)
             user_exam = await get_user_exam(session, user.id)
             word = await session.get(TranslationWord, user_word_id)
             result = word_for_translate_id == word.word_id
