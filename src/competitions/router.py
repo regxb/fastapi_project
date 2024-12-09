@@ -20,7 +20,7 @@ router = APIRouter(
 )
 
 
-@router.get("invite-to-room")
+@router.get("/invite-to-room")
 async def send_invite_to_room(telegram_id: int, room_id: int, bot: Bot = Depends(get_tg_bot)):
     await RoomService.send_invite(telegram_id, room_id, bot)
 
