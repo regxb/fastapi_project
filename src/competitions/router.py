@@ -1,3 +1,4 @@
+from aiogram import Bot
 from fastapi import APIRouter, Depends
 from fastapi.websockets import WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,17 +6,23 @@ from starlette.websockets import WebSocketDisconnect
 
 import redis
 from src.competitions.dependencies import (get_redis, get_room_manager,
-                                           get_websocket_manager)
+                                           get_websocket_manager, get_tg_bot)
 from src.competitions.schemas import (CompetitionAnswerSchema,
                                       CompetitionRoomSchema, CompetitionSchema)
 from src.competitions.service import (CompetitionService, RoomManager,
                                       RoomService, WebSocketManager)
 from src.database import get_async_session
 
+
 router = APIRouter(
     prefix="/competitions",
     tags=["competitions"]
 )
+
+
+@router.get("invite-to-room")
+async def send_invite_to_room(telegram_id: int, room_id: int, bot: Bot = Depends(get_tg_bot)):
+    await RoomService.send_invite(telegram_id, room_id, bot)
 
 
 @router.websocket("/ws")
