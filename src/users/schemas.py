@@ -36,3 +36,9 @@ class UserUpdate(BaseModel):
     telegram_id: int
     learning_language_from_id: AvailableLanguages
     learning_language_to_id: AvailableLanguages
+
+    @model_validator(mode="before")
+    def check_different_languages(cls, values):
+        if values['learning_language_from_id'] == values['learning_language_to_id']:
+            raise ValueError("Языки обучения не могут быть одинаковыми.")
+        return values

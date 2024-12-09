@@ -3,6 +3,7 @@ import json
 from typing import Sequence
 
 import redis.asyncio as redis
+from aiogram import Bot
 from fastapi import HTTPException
 from fastapi.websockets import WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +12,7 @@ from ..models import User
 from ..quizzes.query import get_translation_words
 from ..quizzes.schemas import RandomWordResponse
 from ..quizzes.service import QuizResponseService, WordService
-from ..users.query import get_user
+from ..users.query import get_user_by_telegram_id
 from ..utils import commit_changes_or_rollback
 from .models import CompetitionRoom, CompetitionRoomData
 from .query import (get_all_users_stats, get_competition, get_room_data,
@@ -64,7 +65,7 @@ class RoomManager:
             self, room_data: CompetitionSchema, websocket_manager: WebSocketManager, session: AsyncSession
     ) -> None:
         async with session as session:
-            user = await get_user(session, room_data.telegram_id)
+            user = await get_user_by_telegram_id(session, room_data.telegram_id)
             new_room = CompetitionRoom(owner_id=user.id, **room_data.dict(exclude={"telegram_id"}))
             session.add(new_room)
             await commit_changes_or_rollback(session, "Ошибка при создании комнаты")
@@ -81,7 +82,7 @@ class RoomManager:
             room_id = await self.redis.hget("user_room_map", str(telegram_id))
             if not room_id:
                 return
-            user = await get_user(session, telegram_id)
+            user = await get_user_by_telegram_id(session, telegram_id)
             room_data = await get_room_data(int(room_id), session)
             await websocket_manager.notify_all_users(
                 json.dumps(await MessageService.create_user_move_message("leave", user, room_data, session))
@@ -105,7 +106,7 @@ class RoomService:
     ):
         async with self.session as session:
             telegram_id, room_id = room_data.telegram_id, room_data.room_id
-            user = await get_user(session, telegram_id)
+            user = await get_user_by_telegram_id(session, telegram_id)
             room_data = await get_room_data(room_id, session)
             user_room_data = await get_user_room_data(room_id, user.id, session)
 
@@ -125,7 +126,7 @@ class RoomService:
                         redis_client: redis
                         ):
         room_data = await get_room_data(room_id, self.session)
-        user = await get_user(self.session, telegram_id)
+        user = await get_user_by_telegram_id(self.session, telegram_id)
         await self.__change_user_status_to_online(room_id, user_id, user_room_data)
         await room_manager.add_user_to_room(telegram_id, room_id)
         message_for_users = await MessageService.create_user_move_message("join", user, room_data, session)
@@ -164,16 +165,20 @@ class RoomService:
             await commit_changes_or_rollback(session, "Ошибка при подключении в комнату")
 
     @staticmethod
+    async def send_invite(telegram_id: int, room_id: int, bot: Bot):
+        await bot.send_message(chat_id=telegram_id, text=str(room_id))
+
+    @staticmethod
     async def change_user_status(telegram_id: int, status: str, session: AsyncSession) -> None:
         async with session:
-            user = await get_user(session, telegram_id)
+            user = await get_user_by_telegram_id(session, telegram_id)
             user_rooms_data = await get_user_rooms_data(user.id, session)
             for room in user_rooms_data:
                 room.user_status = status
             await commit_changes_or_rollback(session, "Ошибка при обновлении данных")
 
     @staticmethod
-    async def change_status_to_active(room_id: int, session: AsyncSession):
+    async def change_status_room_to_active(room_id: int, session: AsyncSession):
         competition_room = await get_competition(room_id, session)
         if competition_room.status == "active":
             return False
@@ -192,7 +197,7 @@ class CompetitionService:
             self, room_id: int, websocket_manager: WebSocketManager, room_manager: RoomManager,
             redis_client: redis.Redis):
         async with self.session as session:
-            change_status = await RoomService.change_status_to_active(room_id, session)
+            change_status = await RoomService.change_status_room_to_active(room_id, session)
             if not change_status:
                 error_response = MessageService.create_error_message("Can't start, the game is already in progress")
                 return error_response
@@ -267,7 +272,7 @@ class CompetitionService:
 
     async def __update_user_statistics(self, answer_data: CompetitionAnswerSchema, result: bool) -> None:
         async with self.session as session:
-            user = await get_user(session, answer_data.telegram_id)
+            user = await get_user_by_telegram_id(session, answer_data.telegram_id)
             await self.__update_competition_statistics(user, answer_data.room_id, result)
 
     async def get_users_stats(self, room_id: int) -> Sequence[CompetitionRoomData]:
@@ -301,8 +306,6 @@ class MessageService:
     @staticmethod
     def create_error_message(message: str) -> HTTPException:
         raise HTTPException(status_code=403, detail=message)
-        # response = CompetitionAnswerError(type="error", room_id=room_id, message=message)
-        # return response
 
     @staticmethod
     async def create_user_move_message(
@@ -359,7 +362,7 @@ class ResponseCompetitionsService:
             answer_data: CompetitionAnswerSchema, result: bool,
             users_stats: Sequence[CompetitionRoomData], session: AsyncSession):
         async with session:
-            user = await get_user(session, answer_data.telegram_id)
+            user = await get_user_by_telegram_id(session, answer_data.telegram_id)
             translation_word = await get_translation_words(session, answer_data.word_for_translate_id)
 
             response_data = MessageService.create_competition_answer_message(
