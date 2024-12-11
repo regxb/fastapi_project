@@ -13,7 +13,6 @@ from src.competitions.service import (CompetitionService, RoomManager,
                                       RoomService, WebSocketManager)
 from src.database import get_async_session
 
-
 router = APIRouter(
     prefix="/competitions",
     tags=["competitions"]
@@ -21,16 +20,21 @@ router = APIRouter(
 
 
 @router.get("/invite-to-room")
-async def send_invite_to_room(telegram_id: int, room_id: int, bot: Bot = Depends(get_tg_bot)):
-    await RoomService.send_invite(telegram_id, room_id, bot)
+async def send_invite_to_room(
+        telegram_id: int,
+        room_id: int,
+        bot: Bot = Depends(get_tg_bot),
+        websocket_manager: WebSocketManager = Depends(get_websocket_manager)
+):
+    await RoomService.send_invite(telegram_id, room_id, bot, websocket_manager)
 
 
 @router.websocket("/ws")
 async def websocket_endpoint(
-    websocket: WebSocket,
-    session: AsyncSession = Depends(get_async_session),
-    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
-    room_manager: RoomManager = Depends(get_room_manager)
+        websocket: WebSocket,
+        session: AsyncSession = Depends(get_async_session),
+        websocket_manager: WebSocketManager = Depends(get_websocket_manager),
+        room_manager: RoomManager = Depends(get_room_manager)
 ):
     await websocket.accept()
     data = None

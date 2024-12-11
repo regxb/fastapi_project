@@ -44,6 +44,11 @@ class WebSocketManager:
         for websocket in self.websockets.values():
             await websocket.send_text(message)
 
+    async def notify_user(self, telegram_id: int, room_id: int):
+        if telegram_id in self.websockets:
+            message = await MessageService.create_invite_to_room_message(room_id)
+            await self.websockets[telegram_id].send_text(json.dumps(message))
+
 
 class RoomManager:
 
@@ -165,8 +170,11 @@ class RoomService:
             await commit_changes_or_rollback(session, "Ошибка при подключении в комнату")
 
     @staticmethod
-    async def send_invite(telegram_id: int, room_id: int, bot: Bot):
-        await bot.send_message(chat_id=telegram_id, text=str(room_id))
+    async def send_invite(telegram_id: int, room_id: int, bot: Bot, websocket_manager: WebSocketManager):
+        if telegram_id in websocket_manager.websockets:
+            await websocket_manager.notify_user(telegram_id, room_id)
+            return
+        await bot.send_message(chat_id=telegram_id, text=f"https://learn-mirash.netlify.app/rooms/{room_id}")
 
     @staticmethod
     async def change_user_status(telegram_id: int, status: str, session: AsyncSession) -> None:
@@ -306,6 +314,10 @@ class MessageService:
     @staticmethod
     def create_error_message(message: str) -> HTTPException:
         raise HTTPException(status_code=403, detail=message)
+
+    @staticmethod
+    async def create_invite_to_room_message(room_id: int):
+        return {"type": "invite", "url": f"https://learn-mirash.netlify.app/rooms/{room_id}"}
 
     @staticmethod
     async def create_user_move_message(
