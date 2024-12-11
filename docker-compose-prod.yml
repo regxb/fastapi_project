@@ -29,6 +29,7 @@ services:
       - "traefik.http.routers.fastapi.rule=Host(`api.learn.mirash.su`)"
       - "traefik.http.routers.fastapi.tls=true"
       - "traefik.http.routers.fastapi.tls.certresolver=letsencrypt"
+    restart: always
 
 
   redis:
@@ -38,6 +39,7 @@ services:
       - ./redis/data:/data
     expose:
       - 6379
+    restart: always
 
 
   traefik:
@@ -58,6 +60,7 @@ services:
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.middlewares=auth"
       - "traefik.http.middlewares.auth.basicauth.users=${DASHBOARD_USER}"
+      restart: always
 
 
 volumes:
