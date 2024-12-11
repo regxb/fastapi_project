@@ -4,6 +4,7 @@ from typing import Sequence
 
 import redis.asyncio as redis
 from aiogram import Bot
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from fastapi import HTTPException
 from fastapi.websockets import WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -173,8 +174,14 @@ class RoomService:
     async def send_invite(telegram_id: int, room_id: int, bot: Bot, websocket_manager: WebSocketManager):
         if telegram_id in websocket_manager.websockets:
             await websocket_manager.notify_user(telegram_id, room_id)
-            return
-        await bot.send_message(chat_id=telegram_id, text=f"https://learn-mirash.netlify.app/rooms/{room_id}")
+            return {"type": "send_invite", "success": True}
+        button = InlineKeyboardMarkup(row_width=1, inline_keyboard=[
+            [InlineKeyboardButton(
+                text='Присоединиться',
+                web_app=WebAppInfo(url=f"https://learn-mirash.netlify.app/rooms/{room_id}")
+            )]])
+        await bot.send_message(chat_id=telegram_id, text="Приглашение в комнату", reply_markup=button)
+        return {"type": "send_telegram_invite", "success": True}
 
     @staticmethod
     async def change_user_status(telegram_id: int, status: str, session: AsyncSession) -> None:
@@ -317,7 +324,7 @@ class MessageService:
 
     @staticmethod
     async def create_invite_to_room_message(room_id: int):
-        return {"type": "invite", "url": f"https://learn-mirash.netlify.app/rooms/{room_id}"}
+        return {"type": "invite", "room_id": room_id}
 
     @staticmethod
     async def create_user_move_message(
