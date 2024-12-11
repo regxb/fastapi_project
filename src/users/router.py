@@ -23,7 +23,7 @@ async def create_user(user_data: UserCreate, session: AsyncSession = Depends(get
 
 @router.get("", response_model=UsersSchema)
 async def get_users(
-        page: int = Query(ge=0, default=0),
+        page: int = Query(ge=1, default=0),
         size: int = Query(ge=1, le=100),
         session: AsyncSession = Depends(get_async_session)
 ):
@@ -33,7 +33,7 @@ async def get_users(
 
 @router.get("/online-users", response_model=UsersSchema)
 async def get_online_users(
-        page: int = Query(ge=0, default=0),
+        page: int = Query(ge=1, default=0),
         size: int = Query(ge=1, le=100),
         session: AsyncSession = Depends(get_async_session),
         websocket_manager: WebSocketManager = Depends(get_websocket_manager)
