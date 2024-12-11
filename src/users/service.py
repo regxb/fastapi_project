@@ -4,8 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.competitions.service import WebSocketManager
 from src.constants import levels
 from src.models import User
-from src.users.query import get_user_by_telegram_id, get_user_data, get_users, get_online_users, get_user_by_username
-from src.users.schemas import UserCreate, UserInfo, UserUpdate
+from src.users.query import get_user_by_telegram_id, get_user_data, get_users_list, get_online_users, \
+    get_user_by_username, get_users_count, get_online_users_count
+from src.users.schemas import UserCreate, UserInfo, UserUpdate, UsersSchema
 from src.utils import commit_changes_or_rollback
 
 
@@ -38,15 +39,18 @@ class UserService:
             await commit_changes_or_rollback(session, message="Ошибка при обновлении данных")
             return {"message": "Данные успешно обновлены"}
 
-    async def get_users_list(self, page: int, size: int):
+    async def get_users(self, page: int, size: int):
         async with self.session as session:
-            return await get_users(page, size, session)
+            users = await get_users_list(page, size, session)
+            users_count = await get_users_count(session)
+            return UsersSchema(users_count=users_count, users=[UserInfo(**user.__dict__) for user in users])
 
     async def get_online_users(self, page: int, size: int, websocket_manager: WebSocketManager):
         async with self.session as session:
             telegram_ids = websocket_manager.websockets.keys()
             users = await get_online_users(page, size, session, telegram_ids)
-            return users
+            users_count = await get_online_users_count(telegram_ids, session)
+            return UsersSchema(users_count=users_count, users=[UserInfo(**user.__dict__) for user in users])
 
     async def get_user_info(self, telegram_id: int) -> UserInfo:
         async with self.session as session:

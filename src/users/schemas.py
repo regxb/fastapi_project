@@ -42,3 +42,8 @@ class UserUpdate(BaseModel):
         if values['learning_language_from_id'] == values['learning_language_to_id']:
             raise ValueError("Языки обучения не могут быть одинаковыми.")
         return values
+
+
+class UsersSchema(BaseModel):
+    users_count: int
+    users: list[UserInfo]

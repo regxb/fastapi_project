@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.competitions.dependencies import get_websocket_manager
 from src.competitions.service import WebSocketManager
 from src.database import get_async_session
-from src.users.schemas import UserCreate, UserInfo, UserUpdate
+from src.users.schemas import UserCreate, UserInfo, UserUpdate, UsersSchema
 from src.users.service import UserService
 
 router = APIRouter(
@@ -21,17 +21,17 @@ async def create_user(user_data: UserCreate, session: AsyncSession = Depends(get
     return await user.create_user(user_data)
 
 
-@router.get("", response_model=List[UserInfo])
-async def get_users_list(
+@router.get("", response_model=UsersSchema)
+async def get_users(
         page: int = Query(ge=0, default=0),
         size: int = Query(ge=1, le=100),
         session: AsyncSession = Depends(get_async_session)
 ):
     user = UserService(session)
-    return await user.get_users_list(page, size)
+    return await user.get_users(page, size)
 
 
-@router.get("/online-users")
+@router.get("/online-users", response_model=UsersSchema)
 async def get_online_users(
         page: int = Query(ge=0, default=0),
         size: int = Query(ge=1, le=100),
