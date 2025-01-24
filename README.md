@@ -29,14 +29,14 @@ This is a FastAPI-based platform designed for learning foreign languages. The ma
    ```bash
    git clone https://github.com/regxb/fastapi_project.git
    cd fastapi_project
----
+
 2. To configure the application, create a `.env` file in the root directory based on the `.env_example` file.
----
+
 3. Build and run the Docker containers:
     
     ```bash
     docker-compose up --build
----
+
 4. Start the FastAPI server:
     ```bash
    uvicorn app.main:app --reload
