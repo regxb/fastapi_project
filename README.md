@@ -1,4 +1,4 @@
-# FastAPI Project
+# FastAPI Learn Language Bot
 
 This is a FastAPI-based platform designed for learning foreign languages. The main goal of the project is to create an easy-to-use tool for selecting a language and improving skills through different learning modes. The application supports multiple languages, including Russian, English, and French, and provides a variety of educational features.
 
